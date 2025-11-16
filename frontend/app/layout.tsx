@@ -35,6 +35,12 @@ export default function RootLayout({children,}: Readonly<{children: React.ReactN
          * "hear" the broadcast and can use our 'useUser()'
          * hook to get the logged-in user's data.
         */}
+        
+        {/*The UserProvdier function is the function in userContext.tsx and it is being used a sa component
+        For a function to be a component it must return something react can render
+        UserProvider is returning USerContext.Provider which is also a component
+        So this is what creates the provider of the context
+        Children is being passed as props to the function so that can be wrapped by UserContext.Provider*/}
         <UserProvider>
           {children}
         </UserProvider>

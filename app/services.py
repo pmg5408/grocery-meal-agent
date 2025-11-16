@@ -84,11 +84,8 @@ def buildPrompt(prioritizedItems, meal):
                 <instructions>
                     - Provided below are 2 lists of items, high_priority_ingredients and normal_priority_ingredients.
                     - The elements in the list are names of the ingredients and the quantity.  
-                    - Ingredients part of high_priority_ingredients are ingredients that are close to expiry 
-                    and hence need to be used before they go bad
-                    or they are ingredients that the user has specifically asked to be used in the recipe.
-                    - Ingredients in normal_priority_ingredients are ingredients that are present in the user's pantry 
-                    but don't necessarily need to be used.
+                    - Ingredients part of high_priority_ingredients are ingredients that are close to expiry and hence need to be used before they go bad or they are ingredients that the user has specifically asked to be used in the recipe.
+                    - Ingredients in normal_priority_ingredients are ingredients that are present in the user's pantry but don't necessarily need to be used.
                     - Assume the user has non-perishable generic ingredients like oil, salt, pepper, etc, that are found in most households
                     - I have also provided the meal of the day I want you to suggest recipes for.
                     - Suggest 3 recipes usign the ingredients in the user's pantry.

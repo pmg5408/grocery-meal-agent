@@ -1,6 +1,6 @@
 "use client";
 
-import {useState, useEffect} from 'react';
+import {useState} from 'react';
 
 interface Item{
     itemId: number,
@@ -47,6 +47,10 @@ export default function PantryAccordion ({
 
     const handlePantryExpand = async () => 
     {
+    /*
+        Executed every time arrow is clicked
+        but nothing is executed in the function when the pantry is already expanded
+    */
         setIsExpanded(!isExpanded);
 
         if(!isExpanded && items.length === 0)
