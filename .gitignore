@@ -10,3 +10,4 @@ frontend/.next/
 frontend/npm-debug.log*
 .DS_Store
 frontend/next-env.d.ts
+worker/__pycache__

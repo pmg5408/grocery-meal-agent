@@ -4,6 +4,7 @@ from fastapi import FastAPI, Depends, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel #used for data validation
 from sqlmodel import Session
+from typing import List
 import app.models as models
 import app.crud as crud
 import app.services as services
@@ -30,7 +31,7 @@ def startup():
     createDbAndTables()
 
 def getUserId():
-    return 2
+    return 1
 
 @app.post("/user/register/", response_model=models.UserRead, status_code=status.HTTP_201_CREATED)
 def createUserEndpoint(userData: models.UserCreate, session: Session = Depends(getSession)):
@@ -71,7 +72,7 @@ def getUserEndpoint(session: Session = Depends(getSession), userId = Depends(get
     
     return existingUser
 
-@app.post("/pantry/", response_model=models.PantryRead, status_code=status.HTTP_201_CREATED)
+@app.post("/pantry", response_model=models.PantryRead, status_code=status.HTTP_201_CREATED)
 def createPantryEndpoint(pantryData: models.PantryCreate, session: Session = Depends(getSession), userId: int = Depends(getUserId)):
 
     pantryForUser = crud.getPantryByNameAndUser(session, userId, pantryData.pantryNickname)
@@ -86,7 +87,7 @@ def createPantryEndpoint(pantryData: models.PantryCreate, session: Session = Dep
 
     return newPantry
 
-@app.get("/pantries/", response_model=list[models.PantryRead])
+@app.get("/pantries", response_model=list[models.PantryRead])
 def getPantriesEndpoint(session: Session = Depends(getSession), userId: int = Depends(getUserId)):
 
     pantriesForUser = crud.getPantriesForUser(session, userId)
@@ -118,9 +119,18 @@ def getItemsForPantryEndpoint(pantryId: int, session: Session = Depends(getSessi
 @app.post("/pantry/suggestMeal", response_model=models.RecipeSuggestions, status_code=status.HTTP_200_OK)
 def requestRecipeSuggestionEndpoint(userSuggestions: models.MealRequestPriorityItems, session: Session = Depends(getSession), userId: int = Depends(getUserId)):
     
-    recipes = services.getRecipeSuggestions(session, userId, userSuggestions)
+    recipes = services.getRecipeSuggestions(session, userId, userSuggestions=userSuggestions)
     return recipes
 
+@app.post("/selectedMeal", status_code=status.HTTP_200_OK)
+def deductIngredientsFromDb(ingredients: List[models.Ingredient], session: Session = Depends(getSession), userId: int = Depends(getUserId)):
+
+    remainingQuantities = services.getQuantityToDeduct(session, userId, ingredients)
+    remainingQtyMap = {}
+    for quantity in remainingQuantities.ingredientsUsed:
+        remainingQtyMap[quantity.pantryItemId] = (quantity.quantityRemaining, quantity.unit)
+    crud.updateQuantitiesAfterMeal(session, userId, remainingQtyMap)
+    return 
 
 
 

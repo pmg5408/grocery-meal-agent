@@ -26,3 +26,6 @@ passlib[bcrypt]
 
 openai
 google-generativeai
+
+celery 
+redis

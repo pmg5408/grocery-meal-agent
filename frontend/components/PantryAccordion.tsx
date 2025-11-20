@@ -14,6 +14,7 @@ interface PantryItem{
     pantryId: number,
     itemId: number,
     quantity: number,
+    unit: string | null,
     purchaseDate: string,
     item: Item
 };
@@ -53,7 +54,7 @@ export default function PantryAccordion ({
     */
         setIsExpanded(!isExpanded);
 
-        if(!isExpanded && items.length === 0)
+        if(!isExpanded)
         {
             try
             {
@@ -124,7 +125,7 @@ export default function PantryAccordion ({
                * if the 'items' list is empty.
                */}
               {!loading && items.length === 0 && (
-                <p className="text-gray-500">This pantry is empty.</p>
+                <p className="text-black">This pantry is empty.</p>
               )}
     
               {/* * If we are *not* loading AND we *have* items
@@ -165,7 +166,7 @@ export default function PantryAccordion ({
                         {/* * We use the "nested" item data
                          * 'pantryItem.item.itemName'
                          */}
-                        <span className="font-semibold">
+                        <span className="font-semibold text-black">
                           {pantryItem.item.itemName || 'Unknown Item'}
                         </span>
                         <span className="text-sm text-gray-600 ml-2">
@@ -174,7 +175,8 @@ export default function PantryAccordion ({
                       </div>
                       <div>
                         <span className="text-sm text-gray-800 mr-4">
-                          Qty: {pantryItem.quantity}
+                          Qty: {pantryItem.quantity} {pantryItem.unit || ''}
+
                         </span>
                         <span className="text-sm text-gray-500">
                           {/* * We format the JSON date string

@@ -1,6 +1,7 @@
 from dataclasses import field
-from datetime import datetime
-from sqlmodel import SQLModel, Field, Relationship
+from datetime import datetime, time
+from msilib import Table
+from sqlmodel import SQLModel, Field, Relationship, Index
 from typing import Optional, List
 
 '''
@@ -30,6 +31,8 @@ class User(UserBase, table=True):
     hashedPassword: str
 
     pantries: list["Pantry"] = Relationship(back_populates="user")
+    mealSuggestions: list["ProactiveMealSuggestions"] = Relationship(back_populates="user")
+    preferences: List["UserPreferences"] = Relationship(back_populates="user")
 
 class UserCreate(UserBase):
     password: str
@@ -110,7 +113,8 @@ class ItemRead(ItemBase):
 -------PantryItem Moodels---------
 '''
 class PantryItemBase(SQLModel):
-    quantity: int
+    quantity: float
+    unit: Optional[str]
     purchaseDate: datetime
 
 class PantryItem(PantryItemBase, table=True):
@@ -162,8 +166,17 @@ class MealRequestPriorityItems(SQLModel):
     priorityPantryItemIds: Optional[List[int]] = Field(default_factory=list)
     priorityPantryIds: Optional[List[int]] = Field(default_factory=list)
 
+class LLMItemInput(SQLModel):
+    pantryItemId: int
+    ingredientName: str
+    ingredientBrand: Optional[str]
+    quantity: float
+    unit: Optional[str]
+    daysOwned: int
+
 class Ingredient(SQLModel):
-    item_name: str = Field(description="The exact name of the pantry item used.")
+    pantryItemId: Optional[int] = Field(description="This is the id that was attached to the ingredient in the input")
+    ingredientName: str = Field(description="The exact name of the pantry item used.")
     quantity: float = Field(description="The numerical quantity used (e.g., 2, 0.5).")
     unit: str = Field(description="The unit of measurement (e.g., 'count', 'cups', 'g').")
 
@@ -171,10 +184,65 @@ class Recipe(SQLModel):
     description: str = Field(description="A 1-sentence description of the meal.")
     ingredients: List[Ingredient]
     steps: List[str]
-    time_required: str = Field(description="Approximate time required to prepare the meal e.g., '25 minutes'")
+    timeRequired: str = Field(description="Approximate time required to prepare the meal e.g., '25 minutes'")
 
 class RecipeSuggestions(SQLModel):
     recipes: List[Recipe]
 
+class IngredientUsage(SQLModel):
+    pantryItemId: int
+    quantityUsed: float
+    unitQtyUsed: Optional[str]
+    qtyInDb: float
+    unitInDb: Optional[str]
 
+class IngredientDeduction(SQLModel):
+    pantryItemId: int
+    quantityRemaining: float
+    unit: str
+
+class OutputIngredientDeduction(SQLModel):
+    ingredientsUsed: List[IngredientDeduction]
+
+"""
+=============================== User Meal Preference Time Model ============================== 
+"""
+
+class UserPreferences(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    userId: int = Field(foreign_key="user.id")
+    
+    breakfast: time = Field(default=time(8, 0))
+    lunch: time = Field(default=time(12, 0))
+    eveningSnack: time = Field(default=time(16, 0))
+    dinner: time = Field(default=time(18, 0))
+
+    loadBalancerOffset: int = Field(default=0)
+
+    user: "User" = Relationship(back_populates="preferences")
+
+class ProactiveMealSuggestions(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    userId: int = Field(foreign_key="user.id")
+
+    mealWindow: str
+    suggestionsJson: str
+    generatedAt: datetime = Field(default=datetime.utcnow())
+
+    user: "User" = Relationship(back_populates="mealSuggestions") 
+
+class UserMealTrigger(SQLModel, table=True):
+    __table_args__ = (Index("idx_nextRun", "nextRun"), )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    userId: int = Field(foreign_key="user.id")
+
+    #************* Might need debugging *******************
+    mealWindow: int # same as above (“breakfast”, etc.)
+
+    nextRun: datetime  # precomputed timestamp
+    user: Optional["User"] = Relationship()
 

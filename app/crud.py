@@ -5,6 +5,14 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import or_
 from sqlmodel import Session, select
 from sqlalchemy.sql import literal
+from enum import IntEnum
+
+MEAL_WINDOWS = {
+    0: 'breakfast',
+    1: 'lunch',
+    2: 'eveningSnack',
+    3: 'dinner'
+}
 
 def getUser(session: Session, id: int):
 
@@ -105,7 +113,8 @@ def addItemToPantry(session: Session, pantryItemData: models.PantryItemCreate, p
         purchaseDate=pantryItemData.purchaseDate, #changeNeeded - curr assuming user provides date
         pantryId=pantryId,
         itemId=item.itemId,
-        quantity=pantryItemData.quantity
+        quantity=pantryItemData.quantity,
+        unit=pantryItemData.unit
     )
     session.add(newPantryItem)
     session.commit()
@@ -176,4 +185,66 @@ def getItemsToUseForMeals(session: Session, userId: int, userSuggestions: models
             'priorityItems': priorityItems
             }
 
+def getIngredientQtyFromDb(session, userId, ingredientsIds: list[int]):
+
+    statement = select(models.PantryItem.id, models.PantryItem.quantity, models.PantryItem.unit).join(models.Pantry).where(models.Pantry.userId==userId,models.PantryItem.id.in_(ingredientsIds))
+    ingredientQtyInDb = session.exec(statement).all()
+    return ingredientQtyInDb
+
+def updateQuantitiesAfterMeal(session, userId, remainingQuantityMap):
+
+    statement = (
+        select(models.PantryItem)
+        .join(models.Pantry)
+        .where(models.Pantry.userId == userId,
+            models.PantryItem.id.in_(remainingQuantityMap.keys())))
     
+    ingredients = session.exec(statement).all()
+
+    for ingredient in ingredients:
+        ingredient.quantity = remainingQuantityMap[ingredient.id][0]
+        ingredient.unit = remainingQuantityMap[ingredient.id][1]
+    
+    session.commit()
+
+def getDueUsersByMealTriggers(session, now):
+
+    statement = select(models.UserMealTrigger).where(models.UserMealTrigger.nextRun <= now)
+    usersForMealCompute = session.exec(statement).all()
+    return usersForMealCompute
+
+def computeNextRunForUser(session, userId, mealWindowKey):
+
+    statement = select(models.UserPreferences).where(models.UserPreferences.userId == userId)
+    userPreferences = session.exec(statement).first()
+
+    nextMealWindowKey = (mealWindowKey + 1) % 4
+    nextMealWindowColumn = MEAL_WINDOWS[nextMealWindowKey]
+
+    nextMealTime = getattr(userPreferences, nextMealWindowColumn)
+    userOffset = userPreferences.loadBalancerOffset
+    nextMealTrigger = nextMealTime - userOffset
+
+    return nextMealTrigger, nextMealWindowKey
+
+def updateNextRunForUser(userMealTriggerDbObject, nextRun, nextMealWindowKey):
+
+    userMealTriggerDbObject.nextRun = nextRun
+    userMealTriggerDbObject.mealWindow = nextMealWindowKey
+
+    return
+
+def storeProactiveMealSuggestions(session, userId, suggestionsJson, mealWindow):
+
+    newSuggestionForUser = models.ProactiveMealSuggestions(
+        userId=userId,
+        suggestionsJson=suggestionsJson,
+        mealWindow=mealWindow
+    )
+
+    session.add(newSuggestionForUser)
+    session.commit()
+    session.refresh(newSuggestionForUser)
+
+    return newSuggestionForUser
+

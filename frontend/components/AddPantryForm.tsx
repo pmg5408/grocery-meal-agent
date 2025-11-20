@@ -30,7 +30,7 @@ export default function AddPantry({onSuccess, onCancel} : AddPantryProps)
         {
             const response = await fetch
             (
-                'http://127.0.0.1:8000/pantry/',
+                'http://127.0.0.1:8000/pantry',
                 {
                     method: 'POST',
                     headers: 

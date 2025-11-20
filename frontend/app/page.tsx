@@ -7,11 +7,33 @@ import { useState, useEffect } from "react";
 import PantryAccordion from '@/components/PantryAccordion';
 import AddPantryForm from '@/components/AddPantryForm';
 import AddItemForm from '@/components/AddItemForm';
+import RecipeSuggestionDisplay from '@/components/RecipeSuggestionDisplay';
 
 interface Pantry{
   pantryNickname: string,
   pantryId: number,
   userId: number,
+}
+
+interface Ingredient
+{
+    pantryItemId: number,
+    ingredientName: string,
+    quantity: number,
+    unit: string
+}
+
+interface Recipe
+{
+    description: string,
+    ingredients: Ingredient[],
+    steps: string[],
+    timeRequired: string
+}
+
+interface Result
+{
+    recipes: Recipe[]
 }
 
 export default function Home()
@@ -27,7 +49,7 @@ export default function Home()
   const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
 
   const [suggestionLoading, setSuggestionLoading] = useState(false);
-  const [suggestionResult, setSuggestionResult] = useState<any>(null);
+  const [suggestionResult, setSuggestionResult] = useState<Result | null>(null);
 
   const [modalView, setModalView] = useState<'closed' | 'add' | 'addPantry' | 'addItem'>('closed');
 
@@ -132,7 +154,7 @@ export default function Home()
       setLoading(true);
       setError(null);
 
-      const response = await fetch('http://127.0.0.1:8000/pantries/');
+      const response = await fetch('http://127.0.0.1:8000/pantries');
 
       if(!response.ok)
       {
@@ -193,18 +215,37 @@ export default function Home()
     );
   }
 
-  const handleCloseModal = () => {
+  const handleItemSelectButton = () =>
+  {
+    if(isSelectionMode)
+    {
+      setSelectedItemIds(new Set());
+    }
+    setIsSelectionMode(!isSelectionMode);
+  }
+
+  const handleCloseModal = () => 
+  {
     setModalView('closed');
   }
 
-  const handlePantryAdded = () => {
+  const handlePantryAdded = () => 
+  {
     handleCloseModal(); //Once pantry is added we want to close the modal
     fetchPantries(); //we want to refresh the pantry list if a new pantry is added
   }
 
-  const handleItemAdded = () => {
+  const handleItemAdded = () => 
+  {
     handleCloseModal();
+    fetchPantries()
     //Pantries don't need to refresh but the pantry accordion might need to be refreshed
+  }
+
+  const recipeSelected = () => 
+  {
+    setSuggestionResult(null);
+    fetchPantries();
   }
 
   // --- The "Happy Path" (We are logged in, data is loaded) ---
@@ -220,7 +261,7 @@ export default function Home()
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-semibold">Your Pantries</h2>
             <button 
-              onClick={() => setIsSelectionMode(!isSelectionMode)}
+              onClick={() => handleItemSelectButton()}
               className="px-4 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700">
               {isSelectionMode? 'Cancel Selection' : 'Select Items for Recipe'}
             </button>
@@ -235,7 +276,7 @@ export default function Home()
           
           {/* Conditional Rendering */}
           {pantries.length === 0 ? (
-            <p className="mt-2 text-gray-500">
+            <p className="mt-2 text-black">
               You haven't created any pantries yet.
             </p>
           ) : (
@@ -271,38 +312,39 @@ export default function Home()
         * It is "conditionally rendered" and will *only* appear
         * if 'isSelectionMode' is true.
         */}
-      {isSelectionMode && (
+      
         <div className="mt-8 p-4 bg-white shadow rounded-lg">
           <h3 className="text-lg font-semibold">
             {/* We show a live count of selected items */}
             {selectedItemIds.size} item(s) selected
           </h3>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-black">
             Click the button to get meal suggestions based
             on your selection.
           </p>
           <button
             onClick={handleSuggestedMeals}
-            disabled={suggestionLoading || selectedItemIds.size === 0}
+            disabled={suggestionLoading}
             className="mt-4 w-full py-2 px-4 bg-green-600 text-white rounded-md
                        disabled:bg-gray-400 hover:bg-green-700"
           >
             {suggestionLoading ? 'Thinking...' : 'Suggest Meal!'}
           </button>
         </div>
-      )}
+
 
       {/* --- ADD THIS BLOCK TO SHOW THE RESULT --- */}
       {/* This block will appear after the API call finishes */}
       {suggestionResult && (
-        <div className="mt-8 p-4 bg-white shadow rounded-lg">
-          <h3 className="text-lg font-bold">Meal Suggestion Data:</h3>
-          {/* A '<pre>' tag is the best way to show raw JSON */}
-          <pre className="text-sm bg-gray-900 text-green-300 p-2 rounded overflow-auto">
-            {JSON.stringify(suggestionResult, null, 2)}
-          </pre>
-        </div>
-      )}        
+        <RecipeSuggestionDisplay
+          // We pass the API data *down* to the new component
+          suggestionData={suggestionResult}
+          
+          // We pass the 'fetchPantries' function *down*
+          // so the child can tell the parent to refresh
+          onMealConfirmed={recipeSelected}
+        />
+      )}       
       </div>
         {modalView !== 'closed' && (
         <div 
@@ -316,7 +358,7 @@ export default function Home()
             {/* This is the "X" button to close the modal */}
             <button
               onClick={handleCloseModal}
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-900 text-2xl"
+              className="absolute top-2 right-2 text-grey-600 hover:text-gray-900 text-2xl"
             >
               &times; {/* This is an 'X' symbol */}
             </button>

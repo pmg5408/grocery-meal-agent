@@ -24,6 +24,7 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
     const [selectedPantryId, setSelectedPantryId] = useState<number | string>( pantries[0]?.pantryId || '');
     const [itemName, setItemName] = useState<string>('');
     const [brand, setBrand] = useState<string>('');
+    const [unit, setUnit] = useState<string>('');
     const [quantity, setQuantity] = useState<number>(0);
     const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -32,6 +33,7 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
         itemName: itemName,
         brand: brand || null,
         quantity: Number(quantity),
+        unit: unit || null,
         purchaseDate: new Date(purchaseDate).toISOString()
     }
 
@@ -106,7 +108,7 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
 
         {/* --- Item Name Input --- */}
         <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-black">
             Item Name
             </label>
             <input
@@ -121,7 +123,7 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
 
         {/* --- Brand Input --- */}
         <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-black">
             Brand (Optional)
             </label>
             <input
@@ -133,12 +135,26 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
             />
         </div>
 
+        <div>
+            <label className="block text-sm font-medium text-black">
+            Unit (Optional)
+            </label>
+            <input
+            type="text"
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            placeholder="e.g., Stonyfield"
+            />
+        </div>
+
+
         {/* This 'flex' container puts the next two inputs side-by-side */}
         <div className="flex space-x-4">
             
             {/* --- Quantity Input --- */}
             <div className="w-1/2">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-black">
                 Quantity
             </label>
             <input
