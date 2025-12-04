@@ -1,6 +1,6 @@
 from dataclasses import field
 from datetime import datetime, time
-from msilib import Table
+from xmlrpc.client import boolean
 from sqlmodel import SQLModel, Field, Relationship, Index
 from typing import Optional, List
 
@@ -43,6 +43,9 @@ class UserRead(UserBase):
 class UserLogin(SQLModel):
     email: str
     password: str
+
+class LoginResponse(UserRead):
+    accessToken: str
 
 '''
 -------Pantry Models--------
@@ -228,10 +231,19 @@ class ProactiveMealSuggestions(SQLModel, table=True):
     userId: int = Field(foreign_key="user.id")
 
     mealWindow: str
-    suggestionsJson: str
+    # just store the json and send the json. We already verify that it is of type RecipeSuggestions when we get it from LLM
+    # we just keep the json string and then it is loaded directly in the frontend
+    suggestionsJson: str 
     generatedAt: datetime = Field(default=datetime.utcnow())
+    consumed: boolean = Field(default=False)
 
     user: "User" = Relationship(back_populates="mealSuggestions") 
+
+class ProactiveMealResponse(SQLModel):
+    breakfast: Optional[RecipeSuggestions]
+    lunch: Optional[RecipeSuggestions]
+    eveningSnack: Optional[RecipeSuggestions]
+    dinner: Optional[RecipeSuggestions]
 
 class UserMealTrigger(SQLModel, table=True):
     __table_args__ = (Index("idx_nextRun", "nextRun"), )

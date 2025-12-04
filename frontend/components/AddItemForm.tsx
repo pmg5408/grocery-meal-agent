@@ -53,6 +53,7 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
                     method: 'POST',
                     headers:
                     {
+                        'Authorization': `Bearer ${localStorage.getItem("jwt")}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(itemData)

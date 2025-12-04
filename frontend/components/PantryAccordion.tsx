@@ -62,7 +62,13 @@ export default function PantryAccordion ({
                 setError(null);
 
                 const response = await fetch(
-                    `http://127.0.0.1:8000/${pantry.pantryId}/items`
+                    `http://127.0.0.1:8000/${pantry.pantryId}/items`,
+                    {
+                      headers:
+                      {
+                        'Authorization': `Bearer ${localStorage.getItem("jwt")}`,
+                      }
+                    }
                 );
 
                 if(!response.ok){

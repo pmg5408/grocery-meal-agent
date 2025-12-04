@@ -35,6 +35,7 @@ export default function AddPantry({onSuccess, onCancel} : AddPantryProps)
                     method: 'POST',
                     headers: 
                     {
+                        'Authorization': `Bearer ${localStorage.getItem("jwt")}`,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify(pantryData) //Need to add the data here

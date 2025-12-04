@@ -8,6 +8,8 @@ import PantryAccordion from '@/components/PantryAccordion';
 import AddPantryForm from '@/components/AddPantryForm';
 import AddItemForm from '@/components/AddItemForm';
 import RecipeSuggestionDisplay from '@/components/RecipeSuggestionDisplay';
+import ProactiveMealDisplay from "@/components/ProactiveMealDisplay";
+import  useProactiveMeals from "@/components/useProactiveMeals";
 
 interface Pantry{
   pantryNickname: string,
@@ -53,6 +55,8 @@ export default function Home()
 
   const [modalView, setModalView] = useState<'closed' | 'add' | 'addPantry' | 'addItem'>('closed');
 
+  const { proactiveMeals, connectionStatus } = useProactiveMeals(user);
+
   const handleItemSelectToggle = (pantryItemId: number) => 
   {
     const newSelectedIds = new Set(selectedItemIds);
@@ -91,6 +95,7 @@ export default function Home()
           method: 'POST',
           headers:
           {
+            'Authorization': `Bearer ${localStorage.getItem("jwt")}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(requestData)
@@ -154,7 +159,14 @@ export default function Home()
       setLoading(true);
       setError(null);
 
-      const response = await fetch('http://127.0.0.1:8000/pantries');
+      const response = await fetch(
+        'http://127.0.0.1:8000/pantries',
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem("jwt")}`,
+          },
+        } 
+      );
 
       if(!response.ok)
       {
@@ -306,7 +318,36 @@ export default function Home()
             </ul>
           )}
         </div>
-      {/* --- ADD THIS ENTIRE NEW BLOCK --- */}
+        {/* ---- PROACTIVE MEAL SUGGESTIONS (Real-Time) ---- */}
+        <div className="mt-10">
+            <h2 className="text-2xl font-semibold flex items-center gap-2">
+                Proactive Meal Suggestions
+                <span
+                    className={`text-sm px-2 py-1 rounded-full ${
+                        connectionStatus === "connected"
+                            ? "bg-green-200 text-green-800"
+                            : connectionStatus === "connecting"
+                            ? "bg-yellow-200 text-yellow-800"
+                            : "bg-red-200 text-red-800"
+                    }`}
+                >
+                    {connectionStatus}
+                </span>
+            </h2>
+
+            {!proactiveMeals ? (
+                <p className="text-black mt-2 text-sm">
+                    No proactive meals yet — suggestions will appear automatically
+                    around your configured meal times.
+                </p>
+            ) : (
+                <ProactiveMealDisplay
+                    proactiveMeals={proactiveMeals}
+                    onMealConfirmed={recipeSelected}
+                />
+            )}
+        </div>
+
       {/*
         * This is the "Submit" section.
         * It is "conditionally rendered" and will *only* appear
@@ -333,7 +374,7 @@ export default function Home()
         </div>
 
 
-      {/* --- ADD THIS BLOCK TO SHOW THE RESULT --- */}
+
       {/* This block will appear after the API call finishes */}
       {suggestionResult && (
         <RecipeSuggestionDisplay

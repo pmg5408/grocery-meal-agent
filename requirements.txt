@@ -29,3 +29,5 @@ google-generativeai
 
 celery 
 redis
+
+pyJWT

@@ -2,7 +2,10 @@ from worker.celery import celery
 from datetime import datetime
 from app.database import getSession
 from app import crud, services, models
+import redis
 import json
+
+redisClient = redis.Redis(host="localhost", port=6379, db=0)
 
 MEAL_WINDOWS = {
     0: 'breakfast',
@@ -29,6 +32,8 @@ def scanMealTriggersAndQueueUsers():
             crud.updateNextRunForUSer(user, nextRun, nextMealWindowKey)
         
         session.commit()
+
+        return len(dueUsers)
     
 @celery.task
 def getMealsFromLlm(userId, mealWindowKey):
@@ -47,6 +52,15 @@ def getMealsFromLlm(userId, mealWindowKey):
             mealWindow=mealWindow,
             suggestionsJson=suggestionsJson
         )
+
+        redisClient.publish(
+            "mealUpdates",
+            json.dumps({
+                "userId": userId,
+                "mealWindow": mealWindow,
+            })
+        )
+
 
         return {"status": "success", "userId": userId, "mealWindow": mealWindow}
 

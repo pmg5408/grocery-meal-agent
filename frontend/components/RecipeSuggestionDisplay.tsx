@@ -64,7 +64,8 @@ export default function RecipeSuggestionDisplay({suggestionData, onMealConfirmed
                     method: 'POST',
                     headers: 
                     {
-                        'Content-Type': 'application/json'
+                      'Authorization': `Bearer ${localStorage.getItem("jwt")}`,
+                      'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(selectedRecipe?.ingredients)
                 }

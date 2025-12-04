@@ -1,4 +1,5 @@
 from typing import Literal
+from xxlimited import new
 import app.models as models
 import app.security as security
 from sqlalchemy.orm import selectinload
@@ -6,6 +7,7 @@ from sqlalchemy import or_
 from sqlmodel import Session, select
 from sqlalchemy.sql import literal
 from enum import IntEnum
+from datetime import date
 
 MEAL_WINDOWS = {
     0: 'breakfast',
@@ -13,6 +15,8 @@ MEAL_WINDOWS = {
     2: 'eveningSnack',
     3: 'dinner'
 }
+
+WINDOW_TO_INT = {v: k for k, v in MEAL_WINDOWS.items()}
 
 def getUser(session: Session, id: int):
 
@@ -248,3 +252,30 @@ def storeProactiveMealSuggestions(session, userId, suggestionsJson, mealWindow):
 
     return newSuggestionForUser
 
+def getCurrentMeals(session: Session, userId: int, mealWindow: str):
+
+    statement = (select(models.ProactiveMealSuggestions)
+                .where(models.ProactiveMealSuggestions.userId == userId,
+                    models.ProactiveMealSuggestions.mealWindow == mealWindow,
+                    models.ProactiveMealSuggestions.generatedAt == date.today(),
+                    models.ProactiveMealSuggestions.consumed == False))
+    
+    upcomingMeal = session.exec(statement).first()
+
+    if WINDOW_TO_INT[mealWindow] != 0:
+        currentMealWindowInt = WINDOW_TO_INT[mealWindow] - 1
+        currentMealWindow = MEAL_WINDOWS[currentMealWindowInt]
+    
+    statement = (select(models.ProactiveMealSuggestions)
+                .where(models.ProactiveMealSuggestions.userId == userId,
+                    models.ProactiveMealSuggestions.mealWindow == currentMealWindow,
+                    models.ProactiveMealSuggestions.generatedAt == date.today(),
+                    models.ProactiveMealSuggestions.consumed == False))
+
+    currentMeal = session.exec(statement).first()
+
+    newMealSuggestionResponse = models.ProactiveMealResponse()
+    setattr(newMealSuggestionResponse, mealWindow, upcomingMeal.suggestionsJson)
+    setattr(newMealSuggestionResponse, currentMealWindow, currentMeal.suggestionsJson)
+
+    return newMealSuggestionResponse

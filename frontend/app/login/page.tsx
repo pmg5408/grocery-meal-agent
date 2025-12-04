@@ -49,7 +49,13 @@ export default function loginPage()
             }
 
             const userData = await response.json();
-            login(userData);
+            localStorage.setItem("jwt", userData.accessToken);
+            login({
+                id: userData.id,
+                email: userData.email,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+            });
             router.push('/') //Push is used for redirecting to a different webpage
         }
         catch (err: any)
