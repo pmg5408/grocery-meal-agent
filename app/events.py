@@ -1,14 +1,16 @@
 import asyncio
 import json
+import os
 import redis.asyncio as aioredis
 from app.websocketManager import manager
 
-REDIS_URL="redis://localhost:6379/0"
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_URL=f"redis://{REDIS_HOST}:6379/0"
 
 async def redisListener():
     redis = aioredis.from_url(REDIS_URL)
     pubsub = redis.pubsub()
-    await pubsub.subscribe("mealUpdates")
+    await pubsub.subscribe("mealGenerated")
 
     async for message in pubsub.listen():
         if message["type"] != "message":
@@ -17,5 +19,5 @@ async def redisListener():
         data = json.loads(message["data"])
         userId  = data["userId"]
     
-        manager.sendToUser(userId, data)
+        manager.sendToUser(userId)
 
