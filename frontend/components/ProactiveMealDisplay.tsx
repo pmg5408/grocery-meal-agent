@@ -1,28 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-
-interface Ingredient {
-    pantryItemId: number;
-    ingredientName: string;
-    quantity: number;
-    unit: string;
-}
-
-interface Recipe {
-    description: string;
-    ingredients: Ingredient[];
-    steps: string[];
-    timeRequired: string;
-}
+import { ProactiveMealDisplayData, RecipeSuggestions } from "@/components/types/recipes";
+import { Recipe } from "@/components/types/recipes";
 
 interface ProactiveMealDisplayProps {
-    proactiveMeals: {
-        breakfast?: Recipe[];
-        lunch?: Recipe[];
-        eveningSnack?: Recipe[];
-        dinner?: Recipe[];
-    };
+    proactiveMeals: ProactiveMealDisplayData,
     onMealConfirmed: () => void; // parent (page.tsx) refreshes pantry + clears suggestion if needed
 }
 
@@ -73,15 +56,15 @@ export default function ProactiveMealDisplay({proactiveMeals, onMealConfirmed}: 
         setSelectedRecipe(null);
         onMealConfirmed();
     }
-    const renderWindow = (title: string, recipes?: Recipe[]) => {
-        if (!recipes || recipes.length === 0) return null;
+    const renderWindow = (title: string, suggestions: RecipeSuggestions | null) => {
+        if (!suggestions || suggestions.recipes.length === 0) return null;
 
         return (
             <div className="mt-6 p-4 bg-white shadow rounded-lg">
                 <h2 className="text-xl font-semibold text-blue-700 mb-3">{title}</h2>
 
                 <div className="space-y-3">
-                    {recipes.map((recipe, idx) => (
+                    {suggestions.recipes.map((recipe, idx) => (
                         <button
                             key={idx}
                             className={`w-full p-4 rounded-lg text-left border-2 transition-all ${

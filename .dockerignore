@@ -1,0 +1,9 @@
+.git
+.gitignore
+.env
+venv
+__pycache__
+node_modules
+frontend/node_modules
+celerybeat-schedule.db
+docker-compose.yml.local

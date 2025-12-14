@@ -1,0 +1,55 @@
+#version: '3.9'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: pantry_db
+    ports:
+      #map the laptop's port to the container's port
+      - "5433:5432" 
+    volumes:
+      #saves the db data in a volume locally on the computer
+      #allows data to persist even after contianter is stopped or restarted
+      - postgres_data:/var/lib/postgresql/data 
+    environment:
+      #these vairables configure the postgres container
+      #will be read from the .env file
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+  redis:
+    image: redis:7-alpine
+    container_name: pantry_redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pantry_pgadmin
+    ports:
+      # Maps pgAdmin's web interface port (80) to your laptop's port (8080)
+      # You can access it via http://localhost:8080
+      - "8080:80"
+    environment:
+      # *** Credentials for the pgAdmin web login itself ***
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD}
+    volumes:
+      # Optional: Persist pgAdmin's settings and server connections
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      # Ensures the database service is running before pgAdmin starts
+      db:
+        condition: service_healthy
+
+volumes:
+  #this officially creates the volume
+  postgres_data:
+  pgadmin_data: 

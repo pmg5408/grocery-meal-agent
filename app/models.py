@@ -216,10 +216,13 @@ class UserPreferences(SQLModel, table=True):
 
     userId: int = Field(foreign_key="user.id")
     
-    breakfast: time = Field(default=time(8, 0))
-    lunch: time = Field(default=time(12, 0))
-    eveningSnack: time = Field(default=time(16, 0))
-    dinner: time = Field(default=time(18, 0))
+    #A field of type time maps to a SQL TIME column, which stores: HH:MM:SS in 24hr format
+    # The timezone across the codebase is UTC
+    # Saving default times (which are default times for EST) in UTC as well
+    breakfast: time = Field(default=time(13, 0))
+    lunch: time = Field(default=time(17, 0))
+    eveningSnack: time = Field(default=time(21, 0))
+    dinner: time = Field(default=time(23, 0))
 
     loadBalancerOffset: int = Field(default=0)
 
@@ -240,10 +243,10 @@ class ProactiveMealSuggestions(SQLModel, table=True):
     user: "User" = Relationship(back_populates="mealSuggestions") 
 
 class ProactiveMealResponse(SQLModel):
-    breakfast: Optional[RecipeSuggestions]
-    lunch: Optional[RecipeSuggestions]
-    eveningSnack: Optional[RecipeSuggestions]
-    dinner: Optional[RecipeSuggestions]
+    breakfast: Optional[RecipeSuggestions] = Field(default=None)
+    lunch: Optional[RecipeSuggestions] = Field(default=None)
+    eveningSnack: Optional[RecipeSuggestions] = Field(default=None)
+    dinner: Optional[RecipeSuggestions] = Field(default=None)
 
 class UserMealTrigger(SQLModel, table=True):
     __table_args__ = (Index("idx_nextRun", "nextRun"), )
@@ -252,9 +255,9 @@ class UserMealTrigger(SQLModel, table=True):
 
     userId: int = Field(foreign_key="user.id")
 
-    #************* Might need debugging *******************
-    mealWindow: int # same as above (“breakfast”, etc.)
-
+    currentMealWindowEndTime: Optional[datetime]
+    nextMealWindowToCompute: int # same as above (“breakfast”, etc.)
     nextRun: datetime  # precomputed timestamp
+
     user: Optional["User"] = Relationship()
 

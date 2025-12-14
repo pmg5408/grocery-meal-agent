@@ -1,35 +1,64 @@
-#version: '3.9'
-
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: pantry_db
+  api:
+    build: .
+    container_name: pantry_api
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+    env_file:
+      - .env
     ports:
-      #map the laptop's port to the container's port
-      - "5433:5432" 
-    volumes:
-      #saves the db data in a volume locally on the computer
-      #allows data to persist even after contianter is stopped or restarted
-      - postgres_data:/var/lib/postgresql/data 
-    environment:
-      #these vairables configure the postgres container
-      #will be read from the .env file
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      db: 
+        condition: service_healthy
+
+  celery_worker:
+    build: .
+    container_name: pantry_worker
+    command: celery -A worker.celery worker --loglevel=info
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+  celery_beat:
+    build: .
+    container_name: pantry_beat
+    command: celery -A worker.celery beat --loglevel=info
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
   redis:
     image: redis:7-alpine
     container_name: pantry_redis
     ports:
       - "6379:6379"
-    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+  
+  db:
+    image: postgres:15-alpine
+    container_name: pantry_db
+    environment:
+      POSTGRES_USER: pantry
+      POSTGRES_PASSWORD: pantry
+      POSTGRES_DB: pantry
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pantry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  #this officially creates the volume
   postgres_data:

@@ -2,11 +2,16 @@ import app.crud as crud
 import app.models as models
 import os
 import json
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from dotenv import load_dotenv
 from typing import List
 import google.generativeai as genai
 from google.generativeai.types import GenerationConfig
+from fastapi import HTTPException
+
+
+
+mealOrder = ["breakfast", "lunch", "eveningSnack", "dinner"]
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -19,6 +24,31 @@ LLM_MODEL = genai.GenerativeModel(
     model_name="gemini-2.5-flash-preview-09-2025",
     generation_config=JSON_GENERATION_CONFIG
 )
+
+def registerNewUser(session, userData: models.UserCreate):
+    from worker.tasks import getMealsFromLlm
+    # 1. Create user
+    existingUser = crud.getUserByEmail(session, userData.email)
+    if existingUser:
+        raise HTTPException(400, "Email already exists")
+    newUser = crud.createUser(session, userData)
+
+    preferences = crud.createUserPreferences(session, newUser.id)
+    currentMealWindowKey = computeCurrentWindowForNewUser(preferences)
+    
+    nextRun, nextMealWindowKey = computeNextMealGenerationTime(preferences, currentMealWindowKey)
+
+    userMealTriggerEntry = models.UserMealTrigger(
+        userId=newUser.id,
+        nextRun=nextRun,
+        nextMealWindowToCompute=nextMealWindowKey
+    )
+    crud.createNextTriggerEntryForUser(session, userMealTriggerEntry)
+
+    session.commit()
+    getMealsFromLlm.delay(newUser.id, currentMealWindowKey)
+    return newUser
+
 
 def separatePrioritizedItems(combinedPantryItems):
     userPrioritizedItems = combinedPantryItems['priorityItems']
@@ -159,7 +189,7 @@ def buildPrompt(prioritizedItems, meal):
 
     return prompt
 
-def getRecipeSuggestions(session, userId, userSuggestions=[], mealWindow=None):
+def getRecipeSuggestions(session, userId, userSuggestions=None, mealWindow=None):
 
     preparedData = prepareDataForMealSuggestionPrompt(session, userId, userSuggestions)
 
@@ -265,3 +295,91 @@ def getQuantityToDeduct(session, userId, ingredients: List[models.Ingredient]):
     response = LLM_MODEL.generate_content(prompt)
     remainingQuantities = models.OutputIngredientDeduction.model_validate_json(response.text)
     return remainingQuantities
+
+def computeCurrentWindowForNewUser(preferenceObject: models.UserPreferences):
+    now = datetime.utcnow()
+    boundaries = [preferenceObject.breakfast, preferenceObject.lunch,
+                  preferenceObject.eveningSnack, preferenceObject.dinner]
+    offset = timedelta(minutes=preferenceObject.loadBalancerOffset)
+    adjustedBoundaries = []
+    for boundary in boundaries:
+        datetimeBoundary = datetime(
+            year=now.year,
+            month=now.month,
+            day=now.day,
+            hour=boundary.hour,
+            minute=boundary.minute,
+            second=0,
+            tzinfo=None
+        )        
+        datetimeBoundary -= offset
+        adjustedBoundaries.append(datetimeBoundary)
+        
+    currentMealWindowKey = None
+
+    for i in range(len(boundaries)):
+        start = adjustedBoundaries[i] 
+        end = adjustedBoundaries[(i + 1) % 4]
+
+        if start <= now < end:
+            currentMealWindowKey = i  # mealWindow index
+            break 
+
+    currentMealWindowKey = 3  # fallback = dinner
+
+    return currentMealWindowKey
+
+def computeNextMealGenerationTime(userPreferences: models.UserPreferences, currentNextMealWindowKey: int):
+    nextMealWindowKey = (currentNextMealWindowKey + 1) % 4
+    nextMealWindowName = crud.MEAL_WINDOWS[nextMealWindowKey]
+
+    nextMealTime = getattr(userPreferences, nextMealWindowName)
+    userOffset = userPreferences.loadBalancerOffset
+
+    now = datetime.utcnow()
+
+    # We create a datetime object that corresponds to the user's preference and the appropriate day
+    # store this in userMealTrigger db
+    # This help with compatability when celery workers try to compare current date and time with next trigger
+    # date is important as well, otherwise next day's breakfast will instantly get triggered after it's calculated
+    nextRunDatetimeObject = datetime(
+        year=now.year,
+        month=now.month,
+        day=now.day,
+        hour=nextMealTime.hour,
+        minute=nextMealTime.minute,
+        second=0,
+        tzinfo=None
+    )
+
+    nextRunDatetimeObject = nextRunDatetimeObject - timedelta(minutes=userOffset)
+    if nextRunDatetimeObject <= now:
+        if nextMealWindowKey == 0:
+            # next trigger has already passed which means it's a trigger for tomorrow
+            # Only if breakfast we want to carry over to tomorrow
+            nextRunDatetimeObject = nextRunDatetimeObject + timedelta(days=1)
+        else:
+            # If trigger time has passed but next meal is not breakfast, recompute generation time for next meal
+            computeNextMealGenerationTime(userPreferences, nextMealWindowKey)
+
+    return nextRunDatetimeObject, nextMealWindowKey
+
+def computeCurrentWindowEndTime(userPreferences: models.UserPreferences, nextMealWindowKey: int):
+    # TODO need to have a default for dinner
+    # Currently dinner's end time will only be calculated when it's time for breakfast generation for next day
+    # Ideally want to delete dinner around midnight too
+    nextMealWindowName = crud.MEAL_WINDOWS[nextMealWindowKey]
+    nextWindowStartTime = getattr(userPreferences, nextMealWindowName)
+
+    now = datetime.utcnow()
+    currentWindowEndTime = datetime(
+        year=now.year,
+        month=now.month,
+        day=now.day,
+        hour=nextWindowStartTime.hour,
+        minute=nextWindowStartTime.minute,
+        second=0,
+        tzinfo=None
+    )
+
+    return currentWindowEndTime

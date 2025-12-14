@@ -7,7 +7,10 @@ from sqlalchemy import or_
 from sqlmodel import Session, select
 from sqlalchemy.sql import literal
 from enum import IntEnum
-from datetime import date
+from datetime import date, datetime, timedelta
+from typing import Optional, List
+import random
+import json
 
 MEAL_WINDOWS = {
     0: 'breakfast',
@@ -126,7 +129,7 @@ def addItemToPantry(session: Session, pantryItemData: models.PantryItemCreate, p
 
     return newPantryItem
 
-def getItemsToUseForMeals(session: Session, userId: int, userSuggestions: models.MealRequestPriorityItems):
+def getItemsToUseForMeals(session: Session, userId: int, userSuggestions: Optional[models.MealRequestPriorityItems]):
     """
     This is the "textbook" efficient data-fetching function.
     It builds a *single* SQL query that does three jobs at once:
@@ -155,34 +158,35 @@ def getItemsToUseForMeals(session: Session, userId: int, userSuggestions: models
 
     allUserItems = session.exec(statementForAllItems).all()
 
-    pantryIds = userSuggestions.priorityPantryIds
-    pantryItemIds = userSuggestions.priorityPantryItemIds
-
     priorityItems = []
-    """
-    A different way this can be achieved is by using a hash map on allItems.
-    In services, we iterate through all items once to form their names which is when we can map pantryItemId to name
-    Later we can iterate through pantryItemIds from user and can add these names to the high priority list
-    """
-    if pantryIds or pantryItemIds:
+    if userSuggestions:
+        pantryIds = userSuggestions.priorityPantryIds
+        pantryItemIds = userSuggestions.priorityPantryItemIds
 
-        priorityPantryCond = models.Pantry.pantryId.in_(pantryIds) if pantryIds else literal(False)
-        priorityItemCond = models.PantryItem.id.in_(pantryItemIds) if pantryItemIds else literal(False)
+        """
+        A different way this can be achieved is by using a hash map on allItems.
+        In services, we iterate through all items once to form their names which is when we can map pantryItemId to name
+        Later we can iterate through pantryItemIds from user and can add these names to the high priority list
+        """
+        if pantryIds or pantryItemIds:
 
-        statementForPriorityItems = (
-            select(models.PantryItem)
-            .join(models.Pantry)
-            .where(
-                models.Pantry.userId == userId,
-                or_(priorityPantryCond, priorityItemCond))
-            .options(selectinload(models.PantryItem.item)))
-        '''
-        Explanation for the where clause: 
-        WHERE pantry.userId = :userId
-        AND (FALSE OR FALSE)
-        '''
+            priorityPantryCond = models.Pantry.pantryId.in_(pantryIds) if pantryIds else literal(False)
+            priorityItemCond = models.PantryItem.id.in_(pantryItemIds) if pantryItemIds else literal(False)
 
-        priorityItems = session.exec(statementForPriorityItems).all()
+            statementForPriorityItems = (
+                select(models.PantryItem)
+                .join(models.Pantry)
+                .where(
+                    models.Pantry.userId == userId,
+                    or_(priorityPantryCond, priorityItemCond))
+                .options(selectinload(models.PantryItem.item)))
+            '''
+            Explanation for the where clause: 
+            WHERE pantry.userId = :userId
+            AND (FALSE OR FALSE)
+            '''
+
+            priorityItems = session.exec(statementForPriorityItems).all()
     
     return {
             'allItems': allUserItems, 
@@ -211,32 +215,43 @@ def updateQuantitiesAfterMeal(session, userId, remainingQuantityMap):
     
     session.commit()
 
-def getDueUsersByMealTriggers(session, now):
+def createUserPreferences(session, userId):
 
+    offset = random.randint(0, 30)
+    newUserPreferenceEntry = models.UserPreferences(
+        userId=userId,
+        loadBalancerOffset=offset
+    )
+    session.add(newUserPreferenceEntry)
+    session.commit()
+    session.refresh(newUserPreferenceEntry)
+
+    return newUserPreferenceEntry 
+
+def getDueUsersByMealTriggers(session, now):
     statement = select(models.UserMealTrigger).where(models.UserMealTrigger.nextRun <= now)
     usersForMealCompute = session.exec(statement).all()
     return usersForMealCompute
 
-def computeNextRunForUser(session, userId, mealWindowKey):
-
+def getUserPreferences(session, userId):
     statement = select(models.UserPreferences).where(models.UserPreferences.userId == userId)
     userPreferences = session.exec(statement).first()
+    return userPreferences
 
-    nextMealWindowKey = (mealWindowKey + 1) % 4
-    nextMealWindowColumn = MEAL_WINDOWS[nextMealWindowKey]
-
-    nextMealTime = getattr(userPreferences, nextMealWindowColumn)
-    userOffset = userPreferences.loadBalancerOffset
-    nextMealTrigger = nextMealTime - userOffset
-
-    return nextMealTrigger, nextMealWindowKey
-
-def updateNextRunForUser(userMealTriggerDbObject, nextRun, nextMealWindowKey):
+def updateNextRunForUser(userMealTriggerDbObject: models.UserMealTrigger, nextRun, nextMealWindowKey):
 
     userMealTriggerDbObject.nextRun = nextRun
-    userMealTriggerDbObject.mealWindow = nextMealWindowKey
-
+    userMealTriggerDbObject.nextMealWindowToCompute = nextMealWindowKey
     return
+
+def updateCurrentWindowEndTime(userMealTriggerObject: models.UserMealTrigger, currentWindowEndTime):
+
+    userMealTriggerObject.currentMealWindowEndTime = currentWindowEndTime
+    return
+
+def createNextTriggerEntryForUser(session, userMealTriggerEntry):
+    session.add(userMealTriggerEntry)
+    return 
 
 def storeProactiveMealSuggestions(session, userId, suggestionsJson, mealWindow):
 
@@ -252,30 +267,30 @@ def storeProactiveMealSuggestions(session, userId, suggestionsJson, mealWindow):
 
     return newSuggestionForUser
 
-def getCurrentMeals(session: Session, userId: int, mealWindow: str):
+def getCurrentMeals(session: Session, userId: int):
 
     statement = (select(models.ProactiveMealSuggestions)
                 .where(models.ProactiveMealSuggestions.userId == userId,
-                    models.ProactiveMealSuggestions.mealWindow == mealWindow,
-                    models.ProactiveMealSuggestions.generatedAt == date.today(),
                     models.ProactiveMealSuggestions.consumed == False))
     
-    upcomingMeal = session.exec(statement).first()
-
-    if WINDOW_TO_INT[mealWindow] != 0:
-        currentMealWindowInt = WINDOW_TO_INT[mealWindow] - 1
-        currentMealWindow = MEAL_WINDOWS[currentMealWindowInt]
-    
-    statement = (select(models.ProactiveMealSuggestions)
-                .where(models.ProactiveMealSuggestions.userId == userId,
-                    models.ProactiveMealSuggestions.mealWindow == currentMealWindow,
-                    models.ProactiveMealSuggestions.generatedAt == date.today(),
-                    models.ProactiveMealSuggestions.consumed == False))
-
-    currentMeal = session.exec(statement).first()
+    currentMeals = session.exec(statement).all()
 
     newMealSuggestionResponse = models.ProactiveMealResponse()
-    setattr(newMealSuggestionResponse, mealWindow, upcomingMeal.suggestionsJson)
-    setattr(newMealSuggestionResponse, currentMealWindow, currentMeal.suggestionsJson)
+
+    for meal in currentMeals:
+        parsed = json.loads(meal.suggestionsJson)
+        setattr(newMealSuggestionResponse, meal.mealWindow, parsed)
 
     return newMealSuggestionResponse
+
+def cleanOldMeals(session, now):
+
+    statement = (select(models.ProactiveMealSuggestions).
+                join(models.UserMealTrigger, models.ProactiveMealSuggestions.userId == models.UserMealTrigger.userId).
+                where((models.UserMealTrigger.currentMealWindowEndTime >= now)
+                    | (models.ProactiveMealSuggestions.consumed == True)))
+
+    oldMeals = session.exec(statement).all()
+
+    for meal in oldMeals:
+        session.delete(meal)

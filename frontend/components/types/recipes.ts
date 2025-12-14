@@ -17,8 +17,8 @@ export interface RecipeSuggestions {
 }
 
 export interface ProactiveMealDisplayData {
-    breakfast?: RecipeSuggestions | null;
-    lunch?: RecipeSuggestions | null;
-    eveningSnack?: RecipeSuggestions | null;
-    dinner?: RecipeSuggestions | null;
+    breakfast: RecipeSuggestions | null;
+    lunch: RecipeSuggestions | null;
+    eveningSnack: RecipeSuggestions | null;
+    dinner: RecipeSuggestions | null;
 }

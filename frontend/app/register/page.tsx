@@ -96,7 +96,7 @@ export default function RegisterPage()
                   // our "memory" with the new value ('e.target.value').
                   onChange={(e) => setFirstName(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-gray-700 rounded-md text-gray-900"
                 />
               </div>
 
@@ -116,7 +116,7 @@ export default function RegisterPage()
                   // our "memory" with the new value ('e.target.value').
                   onChange={(e) => setLastName(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-gray-700 rounded-md text-gray-900"
                 />
               </div>
               
@@ -130,7 +130,7 @@ export default function RegisterPage()
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-gray-700 rounded-md text-gray-900"
                 />
               </div>
     
@@ -144,7 +144,7 @@ export default function RegisterPage()
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-gray-700 rounded-md text-gray-900"
                 />
               </div>
     

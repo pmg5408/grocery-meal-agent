@@ -2,10 +2,13 @@ from worker.celery import celery
 from datetime import datetime
 from app.database import getSession
 from app import crud, services, models
+from typing import List
 import redis
 import json
+import os
 
-redisClient = redis.Redis(host="localhost", port=6379, db=0)
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+redisClient = redis.Redis(host=REDIS_HOST, port=6379, db=0)
 
 MEAL_WINDOWS = {
     0: 'breakfast',
@@ -18,21 +21,26 @@ MEAL_WINDOWS = {
 def scanMealTriggersAndQueueUsers():
     with next(getSession()) as session:
         now = datetime.utcnow()
-    
-        dueUsers = crud.getDueUsersByMealTriggers(session, now)
+        crud.cleanOldMeals(session, now)
+        dueUsers: List[models.UserMealTrigger] = crud.getDueUsersByMealTriggers(session, now)
 
         for user in dueUsers:
             userId = user.userId
-            mealWindowKey = user.mealWindow
+            toBeGeneratedWindowKey = user.nextMealWindowToCompute
+            userPreferences = crud.getUserPreferences(session, userId)
 
-            getMealsFromLlm.delay(userId, mealWindowKey)
+            currentWindowEndTime = services.computeCurrentWindowEndTime(userPreferences, toBeGeneratedWindowKey)
+            crud.updateCurrentWindowEndTime(user, currentWindowEndTime)
 
-            nextRun, nextMealWindowKey = crud.computeNextRunForUser(session, userId, mealWindowKey)
+            getMealsFromLlm.delay(userId, toBeGeneratedWindowKey)
+            justGeneratedWindowKey = toBeGeneratedWindowKey
 
-            crud.updateNextRunForUSer(user, nextRun, nextMealWindowKey)
-        
+            
+            nextRun, nextToBeGeneratedWindowKey = services.computeNextMealGenerationTime(userPreferences, justGeneratedWindowKey)
+            # computeNextRunForUser and updating interact with different tables, hence are separate crud calls
+            crud.updateNextRunForUser(user, nextRun, nextToBeGeneratedWindowKey)
+            
         session.commit()
-
         return len(dueUsers)
     
 @celery.task
@@ -54,10 +62,9 @@ def getMealsFromLlm(userId, mealWindowKey):
         )
 
         redisClient.publish(
-            "mealUpdates",
+            "mealGenerated",
             json.dumps({
                 "userId": userId,
-                "mealWindow": mealWindow,
             })
         )
 

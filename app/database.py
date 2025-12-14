@@ -5,14 +5,14 @@ from sqlmodel import create_engine, Session, SQLModel
 
 load_dotenv()
 
-DB_USER = os.getenv("DB_USER")
-DB_NAME = os.getenv("DB_NAME")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = "localhost"
+#DB_USER = os.getenv("DB_USER")
+#DB_NAME = os.getenv("DB_NAME")
+#DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = "127.0.0.1"
 DB_PORT = "5433"
 
 # database connection string
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+DATABASE_URL = os.getenv("DATABASE_URL","postgresql://pantry:pantry@db:5433/pantry")
 
 # create a db engine. This will handle all connections to db
 # echo=True prints all sql statements to terminal

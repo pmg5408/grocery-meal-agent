@@ -61,15 +61,8 @@ async def websocketEndpoint(websocket: WebSocket):
 
 @app.post("/user/register/", response_model=models.UserRead, status_code=status.HTTP_201_CREATED)
 def createUserEndpoint(userData: models.UserCreate, session: Session = Depends(getSession)):
-    existingUser = crud.getUserByEmail(session, userData.email)
+    newUser = services.registerNewUser(session, userData)
 
-    if existingUser:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="An account with this email already exists."
-        )
-
-    newUser = crud.createUser(session, userData)
     return newUser
 
 @app.post("/user/login/", response_model=models.LoginResponse)
@@ -168,10 +161,10 @@ def deductIngredientsFromDb(ingredients: List[models.Ingredient], session: Sessi
     crud.updateQuantitiesAfterMeal(session, userId, remainingQtyMap)
     return 
 
-@app.get("/proactiveMeals/latest?mealWindow={data.mealWindow}", response_model=models.ProactiveMealResponse)
-def getCurrentMealSuggestions(mealWindow: str, session: Session = Depends(getSession), userId: int = Depends(security.verifyJwt)):
-    proactiveMealResponse = crud.getCurrentMeals(session, userId, mealWindow)
-    return proactiveMealResponse
+@app.get("/proactiveMeals/", response_model=models.ProactiveMealResponse)
+def getCurrentMealSuggestions(session: Session = Depends(getSession), userId: int = Depends(security.verifyJwt)):
+    proactiveMealResponse = crud.getCurrentMeals(session, userId)
+    return proactiveMealResponse.model_dump(exclude_none=False)
 
 
 
