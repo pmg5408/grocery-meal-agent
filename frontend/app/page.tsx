@@ -88,9 +88,10 @@ export default function Home()
 
     try
     {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
       const response = await fetch
       (
-        'http://127.0.0.1:8000/pantry/suggestMeal',
+        `http://${API_BASE_URL}/pantry/suggestMeal`,
         {
           method: 'POST',
           headers:
@@ -159,8 +160,9 @@ export default function Home()
       setLoading(true);
       setError(null);
 
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
       const response = await fetch(
-        'http://127.0.0.1:8000/pantries',
+        `http://${API_BASE_URL}/pantries`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem("jwt")}`,

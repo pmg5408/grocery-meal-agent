@@ -19,8 +19,9 @@ export default function useProactiveMeals(user: User | null)
             setLoading(true);
             setError(null);
 
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
             const response = await fetch(
-                `http://localhost:8000/proactiveMeals/`,
+                `http://${API_BASE_URL}:8000/proactiveMeals/`,
                 {
                     headers: {
                         Authorization: `Bearer ${localStorage.getItem("jwt")}`,
@@ -45,7 +46,8 @@ export default function useProactiveMeals(user: User | null)
 
     // -------- INIT WEBSOCKET ----------
     function initWebSocket() {
-        const wsUrl = `ws://localhost:8000/ws?token=${localStorage.getItem("jwt")}`;
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+        const wsUrl = `ws://${API_BASE_URL}/ws?token=${localStorage.getItem("jwt")}`;
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 

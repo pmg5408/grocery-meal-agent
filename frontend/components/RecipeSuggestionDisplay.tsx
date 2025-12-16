@@ -57,23 +57,24 @@ export default function RecipeSuggestionDisplay({suggestionData, onMealConfirmed
 
         try
         {
-            const response = await fetch
-            (
-                'http://127.0.0.1:8000/selectedMeal',
-                {
-                    method: 'POST',
-                    headers: 
-                    {
-                      'Authorization': `Bearer ${localStorage.getItem("jwt")}`,
-                      'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(selectedRecipe?.ingredients)
-                }
-            )
-            if(!response.ok)
-            {
-                throw new Error('Encountered an error while trying to submit the recipe selection')
-            }
+          const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+          const response = await fetch
+          (
+              `http://${API_BASE_URL}/selectedMeal`,
+              {
+                  method: 'POST',
+                  headers: 
+                  {
+                    'Authorization': `Bearer ${localStorage.getItem("jwt")}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(selectedRecipe?.ingredients)
+              }
+          )
+          if(!response.ok)
+          {
+              throw new Error('Encountered an error while trying to submit the recipe selection')
+          }
         }
         catch(err: any)
         {

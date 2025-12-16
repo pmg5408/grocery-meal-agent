@@ -25,9 +25,10 @@ export default function ProactiveMealDisplay({proactiveMeals, onMealConfirmed}: 
             setLoading(true);
             setError(null);
 
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
             const response = await fetch 
             (
-                'http://127.0.0.1:8000/selectedMeal',
+                `http://${API_BASE_URL}/selectedMeal`,
                 {
                     method: 'POST',
                     headers: 

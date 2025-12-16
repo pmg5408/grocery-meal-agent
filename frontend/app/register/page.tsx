@@ -32,27 +32,28 @@ export default function RegisterPage()
 
         try
         {
-            const response = await fetch
-            ('http://127.0.0.1:8000/user/register/', 
-                {
-                    method: 'POST',
-                    headers: 
-                    {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(UserData),
-                }
-            );
+          const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+          const response = await fetch
+          (`http://${API_BASE_URL}/user/register/`, 
+              {
+                  method: 'POST',
+                  headers: 
+                  {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(UserData),
+              }
+          );
 
-            if(!response.ok)
-            {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Failed to register');
-            }
+          if(!response.ok)
+          {
+              const errorData = await response.json();
+              throw new Error(errorData.detail || 'Failed to register');
+          }
 
-            const newUser = await response.json();
-            alert('Registration successful! Please log in.');
-            router.push('/login');
+          const newUser = await response.json();
+          alert('Registration successful! Please log in.');
+          router.push('/login');
         }
         catch(err: any)
         {
