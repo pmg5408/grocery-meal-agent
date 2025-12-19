@@ -49,7 +49,7 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
             const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
             const response = await fetch
             (
-                `http://${API_BASE_URL}/pantry/${selectedPantryId}/item`,
+                `https://${API_BASE_URL}/pantry/${selectedPantryId}/item`,
                 {
                     method: 'POST',
                     headers:

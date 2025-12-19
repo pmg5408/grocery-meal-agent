@@ -36,14 +36,12 @@ def getUserByEmail(session: Session, email: str):
 def authenticateUser(session: Session, userCredentials: models.UserLogin):
 
     user = getUserByEmail(session, userCredentials.email)
-    print(userCredentials.password)
     if user and security.verifyPassword(userCredentials.password, user.hashedPassword):
         return user
 
     return None
 
 def createUser(session: Session, userData: models.UserCreate):
-    print(userData.password)
     hashedPassword = security.getHashedPassword(userData.password)
 
     newUser = models.User(

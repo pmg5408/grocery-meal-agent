@@ -33,7 +33,7 @@ export default function loginPage()
             const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
             const response = await fetch
             (
-                `http://${API_BASE_URL}/user/login/`,
+                `https://${API_BASE_URL}/user/login/`,
                 {
                     method: 'POST',
                     headers: 

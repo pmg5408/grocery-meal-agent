@@ -91,7 +91,7 @@ export default function Home()
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
       const response = await fetch
       (
-        `http://${API_BASE_URL}/pantry/suggestMeal`,
+        `https://${API_BASE_URL}/pantry/suggestMeal`,
         {
           method: 'POST',
           headers:
@@ -162,7 +162,7 @@ export default function Home()
 
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
       const response = await fetch(
-        `http://${API_BASE_URL}/pantries`,
+        `https://${API_BASE_URL}/pantries`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem("jwt")}`,

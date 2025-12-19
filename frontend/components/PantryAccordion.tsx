@@ -63,7 +63,7 @@ export default function PantryAccordion ({
 
                 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
                 const response = await fetch(
-                    `http://${API_BASE_URL}/${pantry.pantryId}/items`,
+                    `https://${API_BASE_URL}/${pantry.pantryId}/items`,
                     {
                       headers:
                       {

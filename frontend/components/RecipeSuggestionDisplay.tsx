@@ -60,7 +60,7 @@ export default function RecipeSuggestionDisplay({suggestionData, onMealConfirmed
           const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
           const response = await fetch
           (
-              `http://${API_BASE_URL}/selectedMeal`,
+              `https://${API_BASE_URL}/selectedMeal`,
               {
                   method: 'POST',
                   headers: 
