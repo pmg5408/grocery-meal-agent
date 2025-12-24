@@ -107,7 +107,6 @@ export default function ProactiveMealDisplay({proactiveMeals, onMealConfirmed}: 
 
     return (
         <div className="mt-10">
-            <h1 className="text-2xl font-bold text-black mb-4">Proactive Meal Suggestions</h1>
 
             {renderWindow("Breakfast", proactiveMeals.breakfast)}
             {renderWindow("Lunch", proactiveMeals.lunch)}

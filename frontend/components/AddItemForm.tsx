@@ -82,7 +82,7 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
         
         {/* --- This is the "Pantry" <select> dropdown --- */}
         <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-gray-900">
             Select Pantry
             </label>
             <select
@@ -91,7 +91,7 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
             // 'onChange' updates the state
             onChange={(e) => setSelectedPantryId(e.target.value)}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-black"
             >
             {pantries.length === 0 ? (
                 // Show this if the 'pantries' prop is an empty list
@@ -118,7 +118,7 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
             value={itemName}
             onChange={(e) => setItemName(e.target.value)}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-black"
             placeholder="e.g., Organic Milk"
             />
         </div>
@@ -132,7 +132,7 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
             type="text"
             value={brand}
             onChange={(e) => setBrand(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-black"
             placeholder="e.g., Stonyfield"
             />
         </div>
@@ -145,7 +145,7 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
             type="text"
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-black"
             placeholder="e.g., Stonyfield"
             />
         </div>
@@ -166,7 +166,7 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
                 onChange={(e) => setQuantity(Number(e.target.value))}
                 required
                 min="1" // Standard HTML to prevent '0' or negative
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-black"
             />
             </div>
             
@@ -180,7 +180,7 @@ export default function AddItemForm({pantries, onSuccess, onCancel}: AddItemProp
                 value={purchaseDate}
                 onChange={(e) => setPurchaseDate(e.target.value)}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-black"
             />
             </div>
         </div>

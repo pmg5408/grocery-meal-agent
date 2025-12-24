@@ -67,7 +67,7 @@ export default function AddPantry({onSuccess, onCancel} : AddPantryProps)
         
         {/* --- Pantry Name Input --- */}
         <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-gray-900">
             Pantry Name
             </label>
             <input
@@ -75,7 +75,7 @@ export default function AddPantry({onSuccess, onCancel} : AddPantryProps)
             value={pantryNickname} // "Two-Way Binding" (Read from state)
             onChange={(e) => setPantryNickname(e.target.value)} // (Write to state)
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-black"
             />
         </div>
 

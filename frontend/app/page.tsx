@@ -266,14 +266,14 @@ export default function Home()
   return (
     <main className="min-h-screen p-8 sm:p-24 bg-gray-50">
       <div className="max-w-4xl">
-        <h1 className="text-4xl font-bold">
+        <h1 className="text-4xl font-bold text-gray-900">
           Welcome, {user.firstName}!
         </h1>
 
         {/* --- This is the new part: The Pantry List --- */}
         <div className="mt-10">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold">Your Pantries</h2>
+            <h2 className="text-2xl font-semibold text-gray-900">Your Pantries</h2>
             <button 
               onClick={() => handleItemSelectButton()}
               className="px-4 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700">
@@ -321,34 +321,42 @@ export default function Home()
           )}
         </div>
         {/* ---- PROACTIVE MEAL SUGGESTIONS (Real-Time) ---- */}
-        <div className="mt-10">
-            <h2 className="text-2xl font-semibold flex items-center gap-2">
-                Proactive Meal Suggestions
-                <span
-                    className={`text-sm px-2 py-1 rounded-full ${
-                        connectionStatus === "connected"
-                            ? "bg-green-200 text-green-800"
-                            : connectionStatus === "connecting"
-                            ? "bg-yellow-200 text-yellow-800"
-                            : "bg-red-200 text-red-800"
-                    }`}
-                >
-                    {connectionStatus}
-                </span>
+        <section className="bg-white rounded-lg shadow p-4 sm:p-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-black">
+              Proactive Meal Suggestions
             </h2>
 
-            {!proactiveMeals ? (
-                <p className="text-black mt-2 text-sm">
-                    No proactive meals yet — suggestions will appear automatically
-                    around your configured meal times.
-                </p>
-            ) : (
-                <ProactiveMealDisplay
-                    proactiveMeals={proactiveMeals}
-                    onMealConfirmed={recipeSelected}
-                />
-            )}
-        </div>
+            {/* Connection Status */}
+            <span
+              className={`text-xs font-medium px-2 py-1 rounded-full ${
+                connectionStatus === "connected"
+                  ? "bg-green-100 text-green-700"
+                  : connectionStatus === "connecting"
+                  ? "bg-yellow-100 text-yellow-700"
+                  : "bg-red-100 text-red-700"
+              }`}
+            >
+              {connectionStatus}
+            </span>
+          </div>
+
+          {/* Content */}
+          {!proactiveMeals ? (
+            <p className="text-sm text-gray-700 mb-2">
+              No proactive meals yet. Suggestions will appear automatically around your configured meal times.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <ProactiveMealDisplay
+                proactiveMeals={proactiveMeals}
+                onMealConfirmed={recipeSelected}
+              />
+            </div>
+          )}
+        </section>
+
 
       {/*
         * This is the "Submit" section.
@@ -357,7 +365,7 @@ export default function Home()
         */}
       
         <div className="mt-8 p-4 bg-white shadow rounded-lg">
-          <h3 className="text-lg font-semibold">
+          <h3 className="text-lg font-semibold text-gray-900">
             {/* We show a live count of selected items */}
             {selectedItemIds.size} item(s) selected
           </h3>
@@ -414,7 +422,7 @@ export default function Home()
             {/* --- View 1: The "Chooser" --- */}
             {modalView === 'add' && (
               <div className="text-center">
-                <h2 className="text-2xl font-bold mb-6">What would you like to add?</h2>
+                <h2 className="text-2xl font-bold mb-6 text-black">What would you like to add?</h2>
                 <div className="flex justify-center space-x-4">
                   <button
                     onClick={() => setModalView('addPantry')}
@@ -435,7 +443,7 @@ export default function Home()
             {/* --- View 2: The "Pantry" Form --- */}
             {modalView === 'addPantry' && (
               <div>
-                <h2 className="text-2xl font-bold mb-4">Create New Pantry</h2>
+                <h2 className="text-2xl font-bold mb-4 text-black">Create New Pantry</h2>
                 {/*
                 * We render the new component and pass it the "callbacks"
                 * it needs to talk back to this parent page.
@@ -450,7 +458,7 @@ export default function Home()
             {/* --- View 3: The "Item" Form --- */}
             {modalView === 'addItem' && (
               <div>
-                <h2 className="text-2xl font-bold mb-4">Add Item to Pantry</h2>
+                <h2 className="text-2xl font-bold mb-4 text-black">Add Item to Pantry</h2>
                 {/*
                 * We pass the 'pantries' list (which we already
                 * fetched) to this component so it can

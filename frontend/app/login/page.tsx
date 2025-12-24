@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/context/userContext';
 
@@ -87,7 +88,7 @@ export default function loginPage()
                     value={email} // "Two-Way Binding" (Read)
                     onChange={(e) => setEmail(e.target.value)} // (Write)
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
                     />
                 </div>
 
@@ -101,7 +102,7 @@ export default function loginPage()
                     value={password} // (Read)
                     onChange={(e) => setPassword(e.target.value)} // (Write)
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
                     />
                 </div>
 
@@ -122,6 +123,18 @@ export default function loginPage()
                     </button>
                 </div>
                 </form>
+                {/* --- 2. Register Link Section --- */}
+                <div className="mt-6 text-center">
+                    <p className="text-lg text-gray-900">
+                        Don't have an account?{' '}
+                        <Link 
+                        href="/register" 
+                        className="font-medium text-blue-600 hover:text-blue-500 hover:underline"
+                        >
+                        Register here
+                        </Link>
+                    </p>
+                </div>
             </div>
         </div>
     );
