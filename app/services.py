@@ -4,12 +4,14 @@ import os
 import json
 from datetime import date, datetime, timedelta
 from dotenv import load_dotenv
+from pydantic import TypeAdapter, ValidationError
 from typing import List
 import google.generativeai as genai
 from google.generativeai.types import GenerationConfig
 from fastapi import HTTPException
+from app.logger import get_logger
 
-
+logger = get_logger("services")
 
 mealOrder = ["breakfast", "lunch", "eveningSnack", "dinner"]
 
@@ -27,11 +29,13 @@ LLM_MODEL = genai.GenerativeModel(
 
 def registerNewUser(session, userData: models.UserCreate):
     from worker.tasks import getMealsFromLlm
-    # 1. Create user
+    logger.info("Registering new user", extra={"email": userData.email})
     existingUser = crud.getUserByEmail(session, userData.email)
     if existingUser:
+        logger.warning("Registration failed: Email already exists", extra={"email": userData.email})
         raise HTTPException(400, "Email already exists")
     newUser = crud.createUser(session, userData)
+    logger.info("User created in DB", extra={"user_id": newUser.id})
 
     preferences = crud.createUserPreferences(session, newUser.id)
     currentMealWindowKey = computeCurrentWindowForNewUser(preferences)
@@ -44,6 +48,8 @@ def registerNewUser(session, userData: models.UserCreate):
         nextMealWindowToCompute=nextMealWindowKey
     )
     crud.createNextTriggerEntryForUser(session, userMealTriggerEntry)
+
+    logger.info("Initial scheduling complete", extra={"user_id": newUser.id, "next_run": nextRun.isoformat()})
 
     session.commit()
     getMealsFromLlm.delay(newUser.id, currentMealWindowKey)
@@ -89,6 +95,11 @@ def separatePrioritizedItems(combinedPantryItems):
         )
         highPriority.append(llmInputItem.model_dump())
     
+    logger.info("Items separated for LLM", extra={
+        "high_priority_count": len(highPriority),
+        "normal_priority_count": len(normalPriority)
+    })
+    
     return {
         "allItems": normalPriority,
         "highPriority": highPriority
@@ -111,10 +122,22 @@ def prepareDataForMealSuggestionPrompt(session, userId, userSuggestions):
     return preparedData
 
 def getAndParseModelResponse(prompt):
+    logger.info("Sending prompt to Gemini LLM...")
 
-    response = LLM_MODEL.generate_content(prompt)
-    suggestions = models.RecipeSuggestions.model_validate_json(response.text)
-    return suggestions
+    try:
+        startTime = datetime.utcnow()
+        response = LLM_MODEL.generate_content(prompt)
+        endTime = datetime.utcnow()
+        duration = (endTime - startTime).total_seconds()
+        
+        logger.info("Gemini response received", extra={"duration_seconds": duration})
+        
+        suggestions = models.RecipeSuggestions.model_validate_json(response.text)
+        return suggestions
+        
+    except Exception as e:
+        logger.error(f"LLM Generation/Parsing Failed: {str(e)}", extra={"prompt_preview": prompt[:100] + "..."})
+        raise e
 
 def buildPrompt(prioritizedItems, meal):
     outputFormat = json.dumps(models.RecipeSuggestions.model_json_schema(), indent=2)
@@ -190,6 +213,7 @@ def buildPrompt(prioritizedItems, meal):
     return prompt
 
 def getRecipeSuggestions(session, userId, userSuggestions=None, mealWindow=None):
+    logger.info("Generating recipe suggestions", extra={"user_id": userId, "meal_window": mealWindow})
 
     preparedData = prepareDataForMealSuggestionPrompt(session, userId, userSuggestions)
 
@@ -200,9 +224,12 @@ def getRecipeSuggestions(session, userId, userSuggestions=None, mealWindow=None)
 
     recipes = getAndParseModelResponse(prompt)
 
+    logger.info("Recipes generated successfully", extra={"count": len(recipes.recipes)})
+
     return recipes
 
 def getQuantityToDeduct(session, userId, ingredients: List[models.Ingredient]):
+    logger.info("Calculating inventory deductions", extra={"user_id": userId})
     ingredientMap = {}
     for ingredient in ingredients:
         if ingredient.pantryItemId != -1:
@@ -292,9 +319,25 @@ def getQuantityToDeduct(session, userId, ingredients: List[models.Ingredient]):
 
     """
 
-    response = LLM_MODEL.generate_content(prompt)
-    remainingQuantities = models.OutputIngredientDeduction.model_validate_json(response.text)
-    return remainingQuantities
+    logger.info("Sending deduction prompt to Gemini...")
+    try:
+        response = LLM_MODEL.generate_content(prompt)
+        responseText = response.text.strip()
+        
+        try:
+            adapter = TypeAdapter(List[models.IngredientDeduction])
+            items_list = adapter.validate_json(responseText)
+
+            remainingQuantities = models.OutputIngredientDeduction(ingredientsUsed=items_list)
+            
+        except ValidationError:
+            remainingQuantities = models.OutputIngredientDeduction.model_validate_json(responseText)
+
+        logger.info("Deduction calculation complete")
+        return remainingQuantities
+    except Exception as e:
+        logger.error(f"Deduction LLM Failed: {str(e)}")
+        raise e
 
 def computeCurrentWindowForNewUser(preferenceObject: models.UserPreferences):
     now = datetime.utcnow()
@@ -314,19 +357,24 @@ def computeCurrentWindowForNewUser(preferenceObject: models.UserPreferences):
         )        
         datetimeBoundary -= offset
         adjustedBoundaries.append(datetimeBoundary)
-        
-    currentMealWindowKey = None
 
+    currentMealWindowKey = 3  # fallback = dinner
     for i in range(len(boundaries)):
         start = adjustedBoundaries[i] 
         end = adjustedBoundaries[(i + 1) % 4]
 
+        if end < start:
+            end += timedelta(days=1)
+            if now < start:
+                start -= timedelta(days=1)
+                end -= timedelta(days=1)
+
         if start <= now < end:
-            currentMealWindowKey = i  # mealWindow index
+            currentMealWindowKey = i 
             break 
 
-    currentMealWindowKey = 3  # fallback = dinner
-
+    
+    logger.info("Computed current window", extra={"window_key": currentMealWindowKey})
     return currentMealWindowKey
 
 def computeNextMealGenerationTime(userPreferences: models.UserPreferences, currentNextMealWindowKey: int):
@@ -338,10 +386,6 @@ def computeNextMealGenerationTime(userPreferences: models.UserPreferences, curre
 
     now = datetime.utcnow()
 
-    # We create a datetime object that corresponds to the user's preference and the appropriate day
-    # store this in userMealTrigger db
-    # This help with compatability when celery workers try to compare current date and time with next trigger
-    # date is important as well, otherwise next day's breakfast will instantly get triggered after it's calculated
     nextRunDatetimeObject = datetime(
         year=now.year,
         month=now.month,
@@ -355,13 +399,15 @@ def computeNextMealGenerationTime(userPreferences: models.UserPreferences, curre
     nextRunDatetimeObject = nextRunDatetimeObject - timedelta(minutes=userOffset)
     if nextRunDatetimeObject <= now:
         if nextMealWindowKey == 0:
-            # next trigger has already passed which means it's a trigger for tomorrow
-            # Only if breakfast we want to carry over to tomorrow
             nextRunDatetimeObject = nextRunDatetimeObject + timedelta(days=1)
         else:
-            # If trigger time has passed but next meal is not breakfast, recompute generation time for next meal
+            logger.info("Next trigger passed, skipping to following meal", extra={"skipped_window": nextMealWindowKey})
             computeNextMealGenerationTime(userPreferences, nextMealWindowKey)
 
+    logger.info("Next meal generation scheduled", extra={
+        "next_run": nextRunDatetimeObject.isoformat(),
+        "window_key": nextMealWindowKey
+    })
     return nextRunDatetimeObject, nextMealWindowKey
 
 def computeCurrentWindowEndTime(userPreferences: models.UserPreferences, nextMealWindowKey: int):

@@ -156,15 +156,8 @@ class PantryItemRead(PantryItemBase):
     itemId: int
 
 class PantryItemReadWithItem(PantryItemRead):
-    '''
-    this read actually returns the item details
-    these item details are validated using the ItemRead class
-    '''
     item: ItemRead
 
-"""
---------------Meal Trigger---------------
-"""
 class MealRequestPriorityItems(SQLModel):
     priorityPantryItemIds: Optional[List[int]] = Field(default_factory=list)
     priorityPantryIds: Optional[List[int]] = Field(default_factory=list)
@@ -206,10 +199,6 @@ class IngredientDeduction(SQLModel):
 
 class OutputIngredientDeduction(SQLModel):
     ingredientsUsed: List[IngredientDeduction]
-
-"""
-=============================== User Meal Preference Time Model ============================== 
-"""
 
 class UserPreferences(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -256,8 +245,11 @@ class UserMealTrigger(SQLModel, table=True):
     userId: int = Field(foreign_key="user.id")
 
     currentMealWindowEndTime: Optional[datetime]
-    nextMealWindowToCompute: int # same as above (“breakfast”, etc.)
-    nextRun: datetime  # precomputed timestamp
+    toBeDeletedMealId: Optional[int]
+    currentActiveMeal: Optional[int]
+
+    nextMealWindowToCompute: int 
+    nextRun: datetime 
 
     user: Optional["User"] = Relationship()
 

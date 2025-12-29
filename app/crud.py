@@ -11,6 +11,9 @@ from datetime import date, datetime, timedelta
 from typing import Optional, List
 import random
 import json
+from app.logger import get_logger
+
+logger = get_logger("crud")
 
 MEAL_WINDOWS = {
     0: 'breakfast',
@@ -34,11 +37,16 @@ def getUserByEmail(session: Session, email: str):
     return user
 
 def authenticateUser(session: Session, userCredentials: models.UserLogin):
-
     user = getUserByEmail(session, userCredentials.email)
+<<<<<<< HEAD
+=======
+    
+>>>>>>> 88c7569 (-Added logging -Fixed bugs related to meal triggers and old meal cleanups -Other code cleanup)
     if user and security.verifyPassword(userCredentials.password, user.hashedPassword):
+        logger.info("User authentication successful", extra={"user_id": user.id})
         return user
-
+    
+    logger.warning("User authentication failed", extra={"email": userCredentials.email})
     return None
 
 def createUser(session: Session, userData: models.UserCreate):
@@ -54,6 +62,8 @@ def createUser(session: Session, userData: models.UserCreate):
     session.add(newUser)
     session.commit()
     session.refresh(newUser)
+    
+    logger.info("New user created", extra={"user_id": newUser.id, "email": newUser.email})
 
     return newUser
 
@@ -74,6 +84,8 @@ def createPantryForUser(session: Session, userId: int, pantryData: models.Pantry
     session.add(newPantry)
     session.commit()
     session.refresh(newPantry)
+
+    logger.info("Pantry created", extra={"user_id": userId, "pantry_id": newPantry.pantryId})
 
     return newPantry
 
@@ -99,6 +111,8 @@ def checkAndAddItem(session: Session, itemName: str, brand: str):
     session.add(newItem)
     session.commit()
     session.refresh(newItem)
+
+    logger.info("New Item added to Global Catalog", extra={"item_name": itemName, "item_id": newItem.itemId})
 
     return newItem
 
@@ -185,6 +199,7 @@ def getItemsToUseForMeals(session: Session, userId: int, userSuggestions: Option
             '''
 
             priorityItems = session.exec(statementForPriorityItems).all()
+            logger.info("Retrieved priority items", extra={"user_id": userId, "count": len(priorityItems)})
     
     return {
             'allItems': allUserItems, 
@@ -207,11 +222,14 @@ def updateQuantitiesAfterMeal(session, userId, remainingQuantityMap):
     
     ingredients = session.exec(statement).all()
 
+    count = 0
     for ingredient in ingredients:
+        count += 1
         ingredient.quantity = remainingQuantityMap[ingredient.id][0]
         ingredient.unit = remainingQuantityMap[ingredient.id][1]
     
     session.commit()
+    logger.info("Updated inventory quantities", extra={"user_id": userId, "items_updated": count})
 
 def createUserPreferences(session, userId):
 
@@ -229,6 +247,10 @@ def createUserPreferences(session, userId):
 def getDueUsersByMealTriggers(session, now):
     statement = select(models.UserMealTrigger).where(models.UserMealTrigger.nextRun <= now)
     usersForMealCompute = session.exec(statement).all()
+
+    if len(usersForMealCompute) > 0:
+        logger.info("Found users due for meal generation", extra={"count": len(usersForMealCompute), "trigger_time": now.isoformat()})
+
     return usersForMealCompute
 
 def getUserPreferences(session, userId):
@@ -243,7 +265,7 @@ def updateNextRunForUser(userMealTriggerDbObject: models.UserMealTrigger, nextRu
     return
 
 def updateCurrentWindowEndTime(userMealTriggerObject: models.UserMealTrigger, currentWindowEndTime):
-
+    userMealTriggerObject.toBeDeletedMealId = userMealTriggerObject.currentActiveMeal
     userMealTriggerObject.currentMealWindowEndTime = currentWindowEndTime
     return
 
@@ -262,6 +284,16 @@ def storeProactiveMealSuggestions(session, userId, suggestionsJson, mealWindow):
     session.add(newSuggestionForUser)
     session.commit()
     session.refresh(newSuggestionForUser)
+
+    logger.info("Stored proactive meal suggestion", extra={"userId": userId, "window": mealWindow})
+
+    statement = select(models.UserMealTrigger).where(newSuggestionForUser.userId == models.UserMealTrigger.userId)
+    userTrigger = session.exec(statement).first()
+
+    if userTrigger:
+        userTrigger.currentActiveMeal = newSuggestionForUser.id
+        session.add(userTrigger)
+        session.commit()
 
     return newSuggestionForUser
 
@@ -282,13 +314,34 @@ def getCurrentMeals(session: Session, userId: int):
     return newMealSuggestionResponse
 
 def cleanOldMeals(session, now):
+    logger.info("Looking for meals to delete")
+    statement = (select(models.ProactiveMealSuggestions, models.UserMealTrigger).
+                join(models.UserMealTrigger, models.ProactiveMealSuggestions.id == models.UserMealTrigger.toBeDeletedMealId).
+                where(( models.UserMealTrigger.currentMealWindowEndTime <= now)))
 
-    statement = (select(models.ProactiveMealSuggestions).
-                join(models.UserMealTrigger, models.ProactiveMealSuggestions.userId == models.UserMealTrigger.userId).
-                where((models.UserMealTrigger.currentMealWindowEndTime >= now)
-                    | (models.ProactiveMealSuggestions.consumed == True)))
-
-    oldMeals = session.exec(statement).all()
-
-    for meal in oldMeals:
+    results = session.exec(statement).all()
+    
+    affectedUsers = []
+    deletedCount = 0
+    for meal, trigger in results:
         session.delete(meal)
+        affectedUsers.append(trigger.userId)
+        trigger.toBeDeletedMealId = None
+        session.add(trigger)
+        deletedCount += 1
+        
+    if deletedCount > 0:
+        logger.info("Cleaned up old meals", extra={"deletedCount":deletedCount})
+    
+    return affectedUsers
+
+def markNewMealAsCurrentMeal(session, userId, newMealId):
+
+    logger.info("Updating current active meal id for user in UserMealTrigger", extra={"userId": userId, "mealId": newMealId})
+    statement = select(models.UserMealTrigger).where(models.UserMealTrigger.userId == userId)
+    userTriggers = session.exec(statement).first()
+
+    userTriggers.currentActiveMeal = newMealId
+    session.add(userTriggers)
+    session.commit()
+    return
