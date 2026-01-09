@@ -12,3 +12,4 @@ frontend/npm-debug.log*
 frontend/next-env.d.ts
 worker/__pycache__
 celerybeat-schedule.db
+.local.env.local
