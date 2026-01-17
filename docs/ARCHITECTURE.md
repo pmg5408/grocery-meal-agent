@@ -1,72 +1,81 @@
 # System Architecture
 
-This document outlines the high-level architecture of the **Grocery & Meal Agent** platform. The system is designed as a cloud-native, event-driven application that separates user interaction (Frontend) from heavy computational tasks (AI Agents).
-
-## High-Level Diagram
-
-The system assumes a **hybrid cloud deployment**:
-* **Frontend:** Hosted on Vercel (Edge Network).
-* **Backend Ecosystem:** Containerized services hosted on AWS EC2.
-* **Data Persistence:** Managed AWS RDS.
-
 ```mermaid
-graph TD
-    %% -- User Layer --
-    User((User / Browser))
+graph LR
+    %% -- Entities --
+    User((fa:fa-user User))
     
-    %% -- Vercel / Frontend --
-    subgraph Vercel_Cloud [Vercel Deployment]
-        NextJS[Next.js Frontend]
+    subgraph Client_Layer [Frontend Layer]
+        NextJS[fa:fa-react Next.js / Vercel]
     end
 
-    %% -- AWS Infrastructure --
-    subgraph AWS_Cloud [AWS Cloud Environment]
-        
-        %% -- Database --
-        RDS[(AWS RDS Postgres)]
-
-        %% -- EC2 Instance --
-        subgraph EC2_Instance [EC2 Instance t2.micro]
-            Nginx[Nginx Reverse Proxy]
+    subgraph AWS_Infrastructure [AWS Cloud Environment]
+        subgraph Compute_EC2 [EC2 Instance: Dockerized Stack]
+            Nginx{fa:fa-server Nginx Proxy}
             
-            %% -- Docker Network --
-            subgraph Docker_Network [Docker Swarm / Compose]
-                API[FastAPI Backend]
-                Redis[(Redis Broker)]
-                Worker[Celery Worker Agent]
-                Beat[Celery Beat Scheduler]
+            subgraph Backend_Services [App Layer]
+                API[fa:fa-bolt FastAPI API]
+                Beat[fa:fa-clock Celery Beat]
+                Worker[fa:fa-robot Celery Worker]
             end
+
+            subgraph Message_Broker [State & Queue]
+                Redis[(fa:fa-layer-group Redis)]
+            end
+        end
+
+        subgraph Data_Storage [Persistence]
+            RDS[(fa:fa-database AWS RDS Postgres)]
         end
     end
 
-    %% -- External Services --
-    subgraph External_AI [External AI Providers]
-        LLM[OpenAI / Gemini API]
+    subgraph Intelligence_Layer [External AI]
+        LLM[fa:fa-brain Google Gemini / OpenAI]
     end
 
-    %% -- Connections --
-    User -- HTTPS --> NextJS
-    NextJS -- HTTPS / WSS --> Nginx
-    Nginx -- Reverse Proxy --> API
+    %% -- Data Flows --
+    User -- HTTPS/WSS --> NextJS
+    NextJS -- REST/JSON --> Nginx
+    NextJS -- Real-time Streams --> Nginx
+    Nginx -- Proxy --> API
+
+    %% Sync Paths
+    API -- SQL Query --> RDS
     
-    %% Backend Logic
-    API -- Read/Write --> RDS
-    API -- Enqueue Task --> Redis
+    %% Async Paths
+    API -- Task Producer --> Redis
+    Beat -- Cron Trigger --> Redis
+    Redis -- Task Consumer --> Worker
     
-    %% Async Workflow
-    Beat -- Schedule Crons --> Redis
-    Redis -- Consume Task --> Worker
-    Worker -- Inference Request --> LLM
-    Worker -- Save Results --> RDS
-    Worker -- Pub/Sub Updates --> Redis
+    %% AI Inference
+    Worker -- Contextual Prompt --> LLM
+    LLM -- Structured Recipe --> Worker
     
-    %% Realtime Feedback
-    Redis -- Update Event --> API
+    %% Feedback Loop
+    Worker -- Write Results --> RDS
+    Worker -- Status Event --> Redis
+    Redis -- Pub/Sub Update --> API
     API -- WebSocket Push --> NextJS
-    
+
     %% Styling
-    style User fill:#f9f,stroke:#333,stroke-width:2px
-    style RDS fill:#316192,stroke:#fff,stroke-width:2px,color:#fff
-    style Redis fill:#DD0031,stroke:#fff,stroke-width:2px,color:#fff
-    style LLM fill:#10a37f,stroke:#fff,stroke-width:2px,color:#fff
-    style Worker fill:#ff9900,stroke:#333,stroke-width:2px
+    %% User override to make it stand out
+    style User fill:#FFF9C4,stroke:#FBC02D,stroke-width:2px,color:#333
+
+    %% Define professional classes
+    %% Containers: Neutral grays to fade into background
+    classDef container fill:#F5F7FA,stroke:#B0BEC5,stroke-width:1px,stroke-dasharray: 5 5,color:#37474F;
+
+    %% Compute Services (API, Frontend, Workers): Clean professional blue
+    classDef service fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#0D47A1;
+
+    %% Data/State (Databases, Redis): Stable Indigo/Purple
+    classDef database fill:#EDE7F6,stroke:#5E35B1,stroke-width:2px,color:#311B92;
+
+    %% External AI: Distinct Teal accent
+    classDef ai fill:#E0F7FA,stroke:#00BCD4,stroke-width:2px,color:#006064;
+
+    %% Apply Classes
+    class AWS_Infrastructure,Client_Layer,Compute_EC2,Backend_Services,Message_Broker,Data_Storage,Intelligence_Layer container;
+    class NextJS,Nginx,API,Beat,Worker service;
+    class RDS,Redis database;
+    class LLM ai;
