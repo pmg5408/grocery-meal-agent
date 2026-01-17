@@ -63,8 +63,7 @@ Check back soon for a demo or **[Try the Live App Here](https://smart-pantry-lia
 ## 📂 Documentation & Architecture
 
 To keep this README clean, detailed engineering decisions are documented separately:
-### 🚧 Work in Progress
-This documentation is currently being written. Please check back shortly for the full system architecture and design decisions.
+
 * **[System Architecture](docs/ARCHITECTURE.md):** High-level diagrams and explanation of the async worker flow.
 * **[Trade-offs & Decisions](docs/TRADEOFFS_AND_DECISIONS.md)** 
 * **[Roadmap](docs/ROADMAP.md):** Future plans, including scalability improvements for LLM costs.

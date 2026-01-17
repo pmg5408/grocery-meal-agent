@@ -29,8 +29,8 @@ graph LR
         end
     end
 
-    subgraph Intelligence_Layer [External AI]
-        LLM[fa:fa-brain Google Gemini / OpenAI]
+    subgraph External AI Services
+        LLM[fa:fa-brain LLM Provider]
     end
 
     %% -- Data Flows --

@@ -28,10 +28,11 @@ Asynchronous work is handled using Celery, with Celery Beat running a periodic s
 - Certain workflows (e.g., meal generation) are time-based and potentially long-running.
 - A periodic scheduler that scans database-backed triggers was simpler than maintaining per-user cron jobs.
 - This model keeps scheduling logic centralized and application-aware.
+- This model may evolve toward event- or time-slot–driven scheduling to reduce unnecessary scans.
 
 **Tradeoffs**
 - Requires always-on worker and scheduler processes.
-- Periodic polling introduces minor inefficiency.
+- Periodic polling introduces minor inefficiency at scale but simplified early iteration and observability.
 
 ---
 
@@ -56,8 +57,7 @@ WebSockets are currently used to notify clients when asynchronous tasks (e.g., m
 
 ## Scope and Intent
 
-Many standard technology choices (e.g., database, containerization) were treated
-as defaults and are intentionally omitted from this document.
+Many foundational technology choices (e.g., database, containerization) were treated as reasonable defaults and are intentionally omitted to keep this document focused on decisions with the highest architectural impact.
 
 This project emphasizes:
 - Learning through implementation
