@@ -38,10 +38,6 @@ def getUserByEmail(session: Session, email: str):
 
 def authenticateUser(session: Session, userCredentials: models.UserLogin):
     user = getUserByEmail(session, userCredentials.email)
-<<<<<<< HEAD
-=======
-    
->>>>>>> 88c7569 (-Added logging -Fixed bugs related to meal triggers and old meal cleanups -Other code cleanup)
     if user and security.verifyPassword(userCredentials.password, user.hashedPassword):
         logger.info("User authentication successful", extra={"user_id": user.id})
         return user
@@ -234,9 +230,11 @@ def updateQuantitiesAfterMeal(session, userId, remainingQuantityMap):
 def createUserPreferences(session, userId):
 
     offset = random.randint(0, 30)
+    bucket = random.randint(0, 19)
     newUserPreferenceEntry = models.UserPreferences(
         userId=userId,
-        loadBalancerOffset=offset
+        loadBalancerOffset=offset,
+        batchGenerationBucket=bucket
     )
     session.add(newUserPreferenceEntry)
     session.commit()
@@ -287,22 +285,15 @@ def storeProactiveMealSuggestions(session, userId, suggestionsJson, mealWindow):
 
     logger.info("Stored proactive meal suggestion", extra={"userId": userId, "window": mealWindow})
 
-    statement = select(models.UserMealTrigger).where(newSuggestionForUser.userId == models.UserMealTrigger.userId)
-    userTrigger = session.exec(statement).first()
-
-    if userTrigger:
-        userTrigger.currentActiveMeal = newSuggestionForUser.id
-        session.add(userTrigger)
-        session.commit()
-
     return newSuggestionForUser
 
 def getCurrentMeals(session: Session, userId: int):
 
     statement = (select(models.ProactiveMealSuggestions)
                 .where(models.ProactiveMealSuggestions.userId == userId,
-                    models.ProactiveMealSuggestions.consumed == False))
-    
+                    models.ProactiveMealSuggestions.consumed == False,
+                    models.ProactiveMealSuggestions.isActive == True))
+
     currentMeals = session.exec(statement).all()
 
     newMealSuggestionResponse = models.ProactiveMealResponse()
@@ -313,27 +304,81 @@ def getCurrentMeals(session: Session, userId: int):
 
     return newMealSuggestionResponse
 
-def cleanOldMeals(session, now):
-    logger.info("Looking for meals to delete")
+def deactivateMealsByWindowEndTime(session, now):
+    """
+    Deactivate meals based on window end times.
+    This marks meals as inactive when their window has ended.
+    """
+    logger.info("Looking for meals to deactivate based on window end times")
     statement = (select(models.ProactiveMealSuggestions, models.UserMealTrigger).
                 join(models.UserMealTrigger, models.ProactiveMealSuggestions.id == models.UserMealTrigger.toBeDeletedMealId).
-                where(( models.UserMealTrigger.currentMealWindowEndTime <= now)))
+                where((models.UserMealTrigger.currentMealWindowEndTime <= now)))
 
     results = session.exec(statement).all()
-    
+
     affectedUsers = []
-    deletedCount = 0
+    deactivatedCount = 0
     for meal, trigger in results:
-        session.delete(meal)
+        # Mark meal as inactive instead of deleting it
+        meal.isActive = False
+        session.add(meal)
         affectedUsers.append(trigger.userId)
         trigger.toBeDeletedMealId = None
         session.add(trigger)
-        deletedCount += 1
-        
-    if deletedCount > 0:
-        logger.info("Cleaned up old meals", extra={"deletedCount":deletedCount})
-    
+        deactivatedCount += 1
+
+    if deactivatedCount > 0:
+        logger.info("Deactivated meals based on window end times", extra={"deactivatedCount": deactivatedCount})
+
     return affectedUsers
+
+def deleteOldMealsByRetentionPolicy(session, now):
+    """
+    Delete meals older than 48 hours based on retention policy.
+    This removes old inactive meals to keep the database clean.
+    """
+    logger.info("Looking for meals to delete based on 48-hour retention policy")
+    cutoff_time = now - timedelta(hours=48)
+
+    # Find meals older than 48 hours that are inactive
+    statement = (select(models.ProactiveMealSuggestions)
+                .where(models.ProactiveMealSuggestions.generatedAt <= cutoff_time,
+                      models.ProactiveMealSuggestions.isActive == False))
+
+    old_meals = session.exec(statement).all()
+
+    affectedUsers = []
+    deletedCount = 0
+    for meal in old_meals:
+        # Delete the old meal
+        session.delete(meal)
+        deletedCount += 1
+        if meal.userId not in affectedUsers:
+            affectedUsers.append(meal.userId)
+
+    if deletedCount > 0:
+        logger.info("Deleted old meals based on 48-hour retention policy", extra={
+            "deletedCount": deletedCount,
+            "cutoff_time": cutoff_time.isoformat()
+        })
+
+def cleanOldMeals(session, now):
+    """
+    Main cleanup function that orchestrates both deactivation and deletion.
+    """
+    logger.info("Starting meal cleanup process")
+
+    # Deactivate meals based on window end times
+    affected_users_1 = deactivateMealsByWindowEndTime(session, now)
+
+    # Delete meals based on retention policy
+    deleteOldMealsByRetentionPolicy(session, now)
+
+    logger.info("Meal cleanup process completed", extra={
+        "total_affected_users": len(affected_users_1)
+    })
+
+    return affected_users_1
 
 def markNewMealAsCurrentMeal(session, userId, newMealId):
 
@@ -345,3 +390,38 @@ def markNewMealAsCurrentMeal(session, userId, newMealId):
     session.add(userTriggers)
     session.commit()
     return
+
+def getUsersByBatchBucket(session: Session, bucketId: int):
+    statement = select(models.UserPreferences).where(models.UserPreferences.batchGenerationBucket == bucketId)
+    return session.exec(statement).all()
+
+def getUnconsumedMealByWindow(session: Session, userId: int, mealWindow: str):
+    statement = select(models.ProactiveMealSuggestions).where(
+        models.ProactiveMealSuggestions.userId == userId,
+        models.ProactiveMealSuggestions.mealWindow == mealWindow,
+        models.ProactiveMealSuggestions.consumed == False
+    ).order_by(models.ProactiveMealSuggestions.generatedAt.desc())
+    return session.exec(statement).first()
+
+def markMealAsActive(session, mealId):
+    statement = select(models.ProactiveMealSuggestions).where(models.ProactiveMealSuggestions.id == mealId)
+    meal = session.exec(statement).first()
+
+    if meal:
+        meal.isActive = True
+        session.add(meal)
+        session.commit()
+        logger.info("Marked meal as active", extra={"meal_id": mealId})
+    return meal
+
+def markMealAsInactive(session, mealId):
+    statement = select(models.ProactiveMealSuggestions).where(models.ProactiveMealSuggestions.id == mealId)
+    meal = session.exec(statement).first()
+
+    if meal:
+        meal.isActive = False
+        session.add(meal)
+        session.commit()
+        logger.info("Marked meal as inactive", extra={"meal_id": mealId})
+    return meal
+

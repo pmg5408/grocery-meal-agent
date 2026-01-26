@@ -3,7 +3,6 @@ from base64 import decode
 from passlib.context import CryptContext
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-<<<<<<< HEAD
 
 def getHashedPassword(password: str) -> str:
     password_bytes = password.encode("utf-8")
@@ -17,8 +16,6 @@ def verifyPassword(plain_password: str, hashed_password: str) -> bool:
         hashed_password.encode("utf-8")
     )
 
-=======
->>>>>>> 88c7569 (-Added logging -Fixed bugs related to meal triggers and old meal cleanups -Other code cleanup)
 import jwt
 from datetime import datetime, timedelta
 import os

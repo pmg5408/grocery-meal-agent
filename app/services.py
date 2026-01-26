@@ -212,6 +212,71 @@ def buildPrompt(prioritizedItems, meal):
 
     return prompt
 
+def buildBatchPrompt(prioritizedItems):
+    outputFormat = json.dumps(models.ProactiveMealResponse.model_json_schema(), indent=2)
+    prompt = f"""
+    <task>
+    You are a meal-planning assistant. Your goal is to plan an ENTIRE DAY of meals (Breakfast, Lunch, Evening Snack, Dinner).
+    1. Reduce food waste by prioritizing expiring items.
+    2. Suggest meals that taste normal and are easy to cook.
+    3. Respect realistic ingredient pairings and quantities.
+    </task>
+
+    <rules>
+    - You will receive two ingredient lists:
+        • high_priority_ingredients (close to expiry OR user-selected)
+        • normal_priority_ingredients (everything else)
+    - You must suggest EXACTLY 3 meal ideas for EACH of the 4 meal windows: breakfast, lunch, eveningSnack, dinner.
+    - A “meal” may be:
+        • A normal cooked recipe using raw ingredients
+        • A ready-to-eat item (e.g., frozen pizza)
+        • A main dish + a simple side
+    - Do NOT force ingredients together if they don’t fit. Taste > using everything.
+    - Pantry staples like oil, salt, pepper, garlic powder can be assumed available.
+    - You should maximize:
+        1. Use of high-priority items  
+        2. Meal quality  
+        3. Efficient pantry usage across the day (don't use all of one ingredient in breakfast if it's needed for dinner)
+    - When referencing pantry ingredients (anything from the input lists), you MUST include the exact pantryItemId.
+    - When referencing pantry staples (oil, salt, pepper, common spices), you MUST list them as ingredients, but they DO NOT have a pantryItemId.
+    - Units of measurement in the recipe MUST use common kitchen-friendly units.
+    - Put '-1' as the pantryItemId for staples.
+    </rules>
+
+    <output_requirements>
+    Your answer MUST be a single valid JSON object.
+    It MUST strictly follow this schema:
+
+    {outputFormat}
+
+    Do NOT explain anything.  
+    Do NOT add notes.  
+    Return ONLY the JSON object.
+    </output_requirements>
+
+    <high_priority_ingredients>
+    {json.dumps(prioritizedItems["highPriority"], indent=2)}
+    </high_priority_ingredients>
+
+    <normal_priority_ingredients>
+    {json.dumps(prioritizedItems["allItems"], indent=2)}
+    </normal_priority_ingredients>
+    """
+    return prompt
+
+def getBatchRecipeSuggestions(session, userId):
+    logger.info("Generating batch recipe suggestions for the day", extra={"user_id": userId})
+    preparedData = prepareDataForMealSuggestionPrompt(session, userId, None)
+    prompt = buildBatchPrompt(preparedData)
+    
+    try:
+        response = LLM_MODEL.generate_content(prompt)
+        batchSuggestions = models.ProactiveMealResponse.model_validate_json(response.text)
+        return batchSuggestions
+    except Exception as e:
+        logger.error(f"Batch LLM Generation Failed: {str(e)}")
+        raise e
+
 def getRecipeSuggestions(session, userId, userSuggestions=None, mealWindow=None):
     logger.info("Generating recipe suggestions", extra={"user_id": userId, "meal_window": mealWindow})
 

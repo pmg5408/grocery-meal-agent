@@ -15,7 +15,7 @@ export default function ProactiveMealDisplay({proactiveMeals, onMealConfirmed}: 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null)
 
-    const handleConfirmedMeal = async (event: React.FormEvent) => 
+    const handleConfirmedMeal = async (event: React.FormEvent) =>
     {
         event.preventDefault();
         if(!selectedRecipe) return;
@@ -26,9 +26,10 @@ export default function ProactiveMealDisplay({proactiveMeals, onMealConfirmed}: 
             setError(null);
 
             const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-            const response = await fetch 
+            const API_PROTOCOL = process.env.NEXT_PUBLIC_API_PROTOCOL || 'http';
+            const response = await fetch
             (
-                `https://${API_BASE_URL}/selectedMeal`,
+                `${API_PROTOCOL}://${API_BASE_URL}/selectedMeal`,
                 {
                     method: 'POST',
                     headers: 

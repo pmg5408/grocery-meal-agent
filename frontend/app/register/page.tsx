@@ -34,8 +34,9 @@ export default function RegisterPage()
         try
         {
           const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+          const API_PROTOCOL = process.env.NEXT_PUBLIC_API_PROTOCOL || 'http';
           const response = await fetch
-          (`https://${API_BASE_URL}/user/register/`, 
+          (`${API_PROTOCOL}://${API_BASE_URL}/user/register/`,
               {
                   method: 'POST',
                   headers: 

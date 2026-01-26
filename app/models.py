@@ -214,8 +214,10 @@ class UserPreferences(SQLModel, table=True):
     dinner: time = Field(default=time(23, 0))
 
     loadBalancerOffset: int = Field(default=0)
+    batchGenerationBucket: int = Field(default=0)
 
     user: "User" = Relationship(back_populates="preferences")
+
 
 class ProactiveMealSuggestions(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -225,11 +227,12 @@ class ProactiveMealSuggestions(SQLModel, table=True):
     mealWindow: str
     # just store the json and send the json. We already verify that it is of type RecipeSuggestions when we get it from LLM
     # we just keep the json string and then it is loaded directly in the frontend
-    suggestionsJson: str 
+    suggestionsJson: str
     generatedAt: datetime = Field(default=datetime.utcnow())
     consumed: boolean = Field(default=False)
+    isActive: boolean = Field(default=False)
 
-    user: "User" = Relationship(back_populates="mealSuggestions") 
+    user: "User" = Relationship(back_populates="mealSuggestions")
 
 class ProactiveMealResponse(SQLModel):
     breakfast: Optional[RecipeSuggestions] = Field(default=None)
@@ -252,4 +255,3 @@ class UserMealTrigger(SQLModel, table=True):
     nextRun: datetime 
 
     user: Optional["User"] = Relationship()
-

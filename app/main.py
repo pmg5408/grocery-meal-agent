@@ -35,11 +35,8 @@ origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://192.168.0.18:3000",
-<<<<<<< HEAD
     "smart-pantry-liard.vercel.app",
-=======
     "https://smart-pantry-liard.vercel.app",
->>>>>>> 88c7569 (-Added logging -Fixed bugs related to meal triggers and old meal cleanups -Other code cleanup)
 ]
 
 app.add_middleware(RequestIDMiddleware)

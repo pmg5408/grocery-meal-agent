@@ -12,7 +12,7 @@ logger = get_logger("events")
 
 async def redisListener():
     logger.info("Connecting to Redis", extra={"url": REDIS_URL})
-    try: 
+    try:
 
         r = redis.from_url(REDIS_URL, decode_responses=True)
         pubsub = r.pubsub()
@@ -31,7 +31,7 @@ async def redisListener():
                     await manager.sendToUser(userId)
                 except Exception as e:
                     logger.error(f"Error processing message: {str(e)}")
-    
+
     except Exception as e:
         logger.critical(f"Redis Connection Failed: {str(e)}")
 
