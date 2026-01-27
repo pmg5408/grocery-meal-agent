@@ -2,6 +2,7 @@ from curses import echo
 import os
 from dotenv import load_dotenv
 from sqlmodel import create_engine, Session, SQLModel
+import redis
 from app.logger import get_logger
 
 logger = get_logger("database")
@@ -16,25 +17,52 @@ DB_NAME = os.getenv("DB_NAME", "pantry")
 
 DATABASE_URL = os.getenv("DATABASE_URL", f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
 
-safe_url = DATABASE_URL.split("@")[-1] 
+safe_url = DATABASE_URL.split("@")[-1]
 logger.info(f"Connecting to database at {safe_url}")
 
-engine = create_engine(DATABASE_URL, echo=False)
+fastapi_engine = create_engine(DATABASE_URL, echo=False)
+celery_engine = create_engine(DATABASE_URL, echo=False)
 
 def createDbAndTables():
     '''
     this class will be responsible to create tables
     '''
     try:
-        SQLModel.metadata.create_all(engine)
+        SQLModel.metadata.create_all(fastapi_engine)
         logger.info("Database tables verified/created successfully")
     except Exception as e:
         logger.critical(f"Database schema creation failed: {str(e)}")
         raise e
 
-def getSession():
+def getFastApiSession():
     '''
-    FastAPI will call this function for every API request that needs a db connection
+    FastAPI will call this function for every API request that needs a db connection.
+    Uses the FastAPI-specific engine.
     '''
-    with Session(engine) as session:
+    with Session(fastapi_engine) as session:
         yield session
+
+def getCelerySession():
+    '''
+    Celery tasks will use this function for database operations.
+    Uses the Celery-specific engine.
+    '''
+    with Session(celery_engine) as session:
+        yield session
+
+def getRedisClient():
+    '''
+    Returns a Redis client instance for rate limiting and other operations.
+    Uses the REDIS_URL from environment variables.
+    '''
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    
+    try:
+        redis_client = redis.from_url(REDIS_URL)
+        # Test the connection
+        redis_client.ping()
+        logger.info(f"Redis client connected successfully to {REDIS_URL}")
+        return redis_client
+    except redis.ConnectionError as e:
+        logger.error(f"Redis connection failed: {str(e)}")
+        raise e

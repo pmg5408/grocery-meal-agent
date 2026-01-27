@@ -1,6 +1,6 @@
 from worker.celery import celery
 from datetime import datetime
-from app.database import getSession
+from app.database import getCelerySession
 from app import crud, services, models
 from typing import List
 import redis
@@ -37,7 +37,7 @@ def generateDailyMealsBatch():
     logger.info(f"Starting daily batch meal generation for bucket {current_bucket}")
 
     try:
-        with next(getSession()) as session:
+        with next(getCelerySession()) as session:
             users_in_bucket = crud.getUsersByBatchBucket(session, current_bucket)
             if not users_in_bucket:
                 logger.info(f"No users found for bucket {current_bucket}")
@@ -54,7 +54,7 @@ def generateDailyMealsBatch():
 def generateAllMealsForUser(self, userId):
     logger.info(f"Generating all meals for the day for user {userId}")
     try:
-        with next(getSession()) as session:
+        with next(getCelerySession()) as session:
             batch_suggestions = services.getBatchRecipeSuggestions(session, userId)
             
             for window_name in MEAL_WINDOWS.values():
@@ -77,7 +77,7 @@ def scanMealTriggersAndQueueUsers():
     logger.info("Scheduler tick: Scanning for due meal triggers")
     
     try:
-        with next(getSession()) as session:
+        with next(getCelerySession()) as session:
             now = datetime.utcnow()
             cleanedUsers = crud.cleanOldMeals(session, now)
 
@@ -149,7 +149,7 @@ def getMealsFromLlm(self, userId, mealWindowKey):
     logger.info("Starting LLM Meal Generation Task", extra={"user_id": userId, "window_key": mealWindowKey})
 
     try:
-        with next(getSession()) as session:
+        with next(getCelerySession()) as session:
 
             mealWindow = MEAL_WINDOWS.get(mealWindowKey, "dinner")
 

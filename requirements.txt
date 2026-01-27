@@ -30,3 +30,7 @@ celery
 redis
 
 pyJWT
+
+# --- Rate Limiting ---
+slowapi
+# FastAPI rate limiting middleware for implementing API rate limits
