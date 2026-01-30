@@ -276,7 +276,8 @@ def storeProactiveMealSuggestions(session, userId, suggestionsJson, mealWindow):
     newSuggestionForUser = models.ProactiveMealSuggestions(
         userId=userId,
         suggestionsJson=suggestionsJson,
-        mealWindow=mealWindow
+        mealWindow=mealWindow,
+        generatedAt=datetime.utcnow()
     )
 
     session.add(newSuggestionForUser)
