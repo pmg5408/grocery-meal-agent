@@ -228,7 +228,7 @@ class ProactiveMealSuggestions(SQLModel, table=True):
     # just store the json and send the json. We already verify that it is of type RecipeSuggestions when we get it from LLM
     # we just keep the json string and then it is loaded directly in the frontend
     suggestionsJson: str
-    generatedAt: datetime = Field(default=datetime.utcnow())
+    generatedAt: datetime = Field(default_factory=datetime.utcnow)
     consumed: boolean = Field(default=False)
     isActive: boolean = Field(default=False)
 
