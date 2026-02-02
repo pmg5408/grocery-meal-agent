@@ -12,18 +12,32 @@
 
 An intelligent full-stack application that solves the 'what's for dinner problem' and reduces food wastage by combining real-time food inventory tracking with semantic and proactive meal recommendations.
 
-<p>
-  <a href="https://smart-pantry-liard.vercel.app/">
-    <img src="https://img.shields.io/badge/View_Live_Demo-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo" />
+<br/>
+
+<h2 align="center">🚀 Live Production App</h2>
+
+<p align="center">
+  <a href="https://smart-pantry-liard.vercel.app/" target="_blank">
+    <img src="https://img.shields.io/badge/LIVE%20APP%20—%20TRY%20IT%20NOW-black?style=for-the-badge&logo=vercel&logoColor=white" />
+  </a>
+</p>
+
+<br/>
+
+<p align="center">
+  <a href="https://smart-pantry-liard.vercel.app/" target="_blank">
+    <img src="AIMealScreenshot.png" alt="App Preview" width="800"/>
   </a>
 </p>
 ---
 
 ## 📸 Demo
-### 🚧 Work in Progress
-Check back soon for a demo or **[Try the Live App Here](https://smart-pantry-liard.vercel.app/)** - !! 
 
-![Application Demo](https://via.placeholder.com/800x400?text=Application+Demo+GIF+Placeholder)
+### Manual Meal Generation (User-Triggered)
+[![Manual Meal Generation Demo](https://img.youtube.com/vi/1OgnhLsvLvk/0.jpg)](https://youtu.be/1OgnhLsvLvk)
+
+### Proactive Meal Suggestions
+[![Proactive Meal Generation Demo](https://img.youtube.com/vi/br5_VpD816I/0.jpg)](https://youtu.be/br5_VpD816I)
 
 ---
 
