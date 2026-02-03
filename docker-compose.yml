@@ -64,7 +64,7 @@ services:
       POSTGRES_PASSWORD: pantry
       POSTGRES_DB: pantry
     ports:
-      - "5433:5432"
+      - "5433:5432" # 5433 used locally to avoid conflict with host Postgres
     volumes:
       - postgres_local_data:/var/lib/postgresql/data
 

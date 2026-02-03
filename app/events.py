@@ -5,8 +5,7 @@ import redis.asyncio as redis
 from app.websocketManager import manager
 from app.logger import get_logger
 
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_URL=f"redis://{REDIS_HOST}:6379/0"
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 logger = get_logger("events")
 

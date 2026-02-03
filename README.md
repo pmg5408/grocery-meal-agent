@@ -29,6 +29,7 @@ An intelligent full-stack application that solves the 'what's for dinner problem
     <img src="AIMealScreenshot.png" alt="App Preview" width="800"/>
   </a>
 </p>
+
 ---
 
 ## 📸 Demo
@@ -96,21 +97,20 @@ To run the full "Smart Kitchen" agent ecosystem locally (independent of the AWS 
 1.  **Clone the repository**
     ```bash
     git clone [https://github.com/pmg5408/grocery-meal-agent.git](https://github.com/pmg5408/grocery-meal-agent.git)
-    cd pantry-planner
+    cd grocery-meal-agent
     ```
 
-2.  **Environment Configuration**
-    Create a `.env` file. Note that `docker-compose.yml` defaults to the following local DB credentials, so you only need to add your LLM keys.
+2.  **Bakcend Environment Configuration**
+    Create a `.env` file from the example:
     ```bash
     cp .env.example .env
     ```
-    *Ensure your .env matches the docker-compose defaults:*
-    * `POSTGRES_USER=pantry`
-    * `POSTGRES_PASSWORD=pantry`
-    * `POSTGRES_DB=pantry`
-    * `DATABASE_URL=postgresql://pantry:pantry@db:5432/pantry`
+    * Fill in your LLM API key:
+    `GEMINI_API_KEY=your_key_here`
+    
+    * Redis and Postgres credentials are preconfigured for local Docker usage.
 
-3.  **Launch the System**
+3.  **Start Backend Services**
     ```bash
     docker-compose up --build
     ```
@@ -118,6 +118,7 @@ To run the full "Smart Kitchen" agent ecosystem locally (independent of the AWS 
 4. **Setup the Frontend**
     ```bash
     cd frontend
+    cp .env.example .env
 
     # Install dependencies (Required)
     npm install
