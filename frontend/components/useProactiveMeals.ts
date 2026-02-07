@@ -11,7 +11,7 @@ export default function useProactiveMeals(user: User | null)
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const wsRef = useRef<WebSocket | null>(null);
+    const eventSourceRef = useRef<EventSource | null>(null);
 
     // -------- FETCH MEALS (reusable helper) ----------
     const fetchLatestMeals = async () => {
@@ -45,36 +45,47 @@ export default function useProactiveMeals(user: User | null)
         }
     };
 
-    // -------- INIT WEBSOCKET ----------
-    function initWebSocket() {
+    // -------- INIT SSE ----------
+    function initSSE() {
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
         const API_PROTOCOL = process.env.NEXT_PUBLIC_API_PROTOCOL || 'http';
-        const wsProtocol = API_PROTOCOL === 'https' ? 'wss' : 'ws';
-        const wsUrl = `${wsProtocol}://${API_BASE_URL}/ws?token=${localStorage.getItem("jwt")}`;
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
+        const token = localStorage.getItem("jwt");
+        
+        // EventSource doesn't support custom headers, so we pass token in URL
+        const sseUrl = `${API_PROTOCOL}://${API_BASE_URL}/events?token=${token}`;
+        
+        const es = new EventSource(sseUrl);
+        eventSourceRef.current = es;
 
-        ws.onopen = () => {
-            console.log("🔌 WS connected");
+        es.onopen = () => {
+            console.log("🔌 SSE connected");
             setConnectionStatus("connected");
         };
 
-        ws.onclose = () => setConnectionStatus("disconnected");
-        ws.onerror = () => setConnectionStatus("disconnected");
-
-        ws.onmessage = () => {
-            // no meal window needed anymore
-            console.log("📩 WS: new meal generated → refetching...");
-            fetchLatestMeals();
+        es.onerror = (error) => {
+            console.error("SSE error:", error);
+            setConnectionStatus("disconnected");
+            // EventSource will automatically try to reconnect
         };
+
+        // Listen for the initial connection event
+        es.addEventListener('connected', (event) => {
+            console.log("✅ SSE connection established:", event.data);
+        });
+
+        // Listen for meal ready events
+        es.addEventListener('meal_ready', (event) => {
+            console.log("📩 SSE: new meal generated → refetching...");
+            fetchLatestMeals();
+        });
     }
 
     // -------- EFFECT: On first mount + when user logs in ----------
     useEffect(() => {
         if (!user) {
-            if (wsRef.current) {
-                wsRef.current.close(1000, "User logged out");
-                wsRef.current = null;
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+                eventSourceRef.current = null;
             }
             setConnectionStatus("disconnected");
             setProactiveMeals(null);
@@ -84,12 +95,13 @@ export default function useProactiveMeals(user: User | null)
         // 1) Fetch meals immediately on page load or login
         fetchLatestMeals();
 
-        // 2) Open WS connection
-        initWebSocket();
+        // 2) Open SSE connection
+        initSSE();
 
         return () => {
-            if (wsRef.current) {
-                wsRef.current.close(1000, "Component unmount");
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+                eventSourceRef.current = null;
             }
         };
     }, [user]);

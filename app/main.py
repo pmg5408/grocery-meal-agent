@@ -1,21 +1,19 @@
 import asyncio
-from urllib import response
 from app.database import createDbAndTables, getFastApiSession
-from fastapi import FastAPI, Depends, status, HTTPException, WebSocket
+from fastapi import FastAPI, Depends, status, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from sqlmodel import Session
 from typing import List
-from app.events import redisListener
 import app.models as models
 import app.crud as crud
 import app.services as services
-from app.websocketManager import manager
 import app.security as security
 from app.rate_limiter import check_rate_limit
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.logger import get_logger, requestIdContext
 import uuid
+from app.sse_manager import create_sse_response, redis_listener as sse_redis_listener
+from app.security import verifyJwtSSE
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -65,39 +63,12 @@ def startup():
 
 
 @app.on_event("startup")
-async def startRedisListener():
-    logger.info("Starting Redis Listener background task...")
-    task = asyncio.create_task(redisListener())
+async def startSSERedisListener():
+    logger.info("Starting SSE Redis Listener background task...")
+    task = asyncio.create_task(sse_redis_listener())
     backgroundTasks.add(task)
     task.add_done_callback(backgroundTasks.discard)
-    logger.info("Redis Listener attached to background tasks.")
-
-def getUserId():
-    return 1
-
-@app.websocket("/ws")
-async def websocketEndpoint(websocket: WebSocket):
-    token = websocket.query_params.get("token")
-
-    try:
-        userId = security.decodeJwt(token)
-    except:
-        logger.warning(f"WebSocket connection rejected: Invalid token. Error: {str(e)}")
-        await websocket.close()
-        return
-
-    await manager.connect(userId, websocket)
-    logger.info("WebSocket connected", extra={"user_id": userId})
-
-    try:
-        while True:
-            await asyncio.sleep(3600)
-    except WebSocketDisconnect:
-        logger.info("WebSocket disconnected", extra={"user_id": userId})
-        await manager.disconnect(userId)
-    except Exception as e:
-        logger.error(f"WebSocket unexpected error: {str(e)}", extra={"user_id": userId})
-        await manager.disconnect(userId)
+    logger.info("SSE Redis Listener attached to background tasks.")
 
 @app.post("/user/register/", response_model=models.UserRead, status_code=status.HTTP_201_CREATED)
 def createUserEndpoint(userData: models.UserCreate, session: Session = Depends(getFastApiSession)):
@@ -216,6 +187,26 @@ def deductIngredientsFromDb(ingredients: List[models.Ingredient], session: Sessi
 def getCurrentMealSuggestions(session: Session = Depends(getFastApiSession), userId: int = Depends(security.verifyJwt)):
     proactiveMealResponse = crud.getCurrentMeals(session, userId)
     return proactiveMealResponse.model_dump(exclude_none=False)
+
+@app.get("/events")
+async def eventsEndpoint(
+    request: Request,
+    userId: int = Depends(verifyJwtSSE)
+):
+    """
+    Server-Sent Events endpoint for real-time meal notifications.
+    
+    This replaces WebSocket-based notifications with SSE, which is:
+    - Simpler (one-way communication only)
+    - HTTP-based (firewall/proxy friendly)
+    - Auto-reconnecting with EventSource API
+    
+    Events:
+    - connected: Initial connection established
+    - meal_ready: A new meal has been generated for the user
+    """
+    logger.info("SSE connection requested", extra={"user_id": userId})
+    return create_sse_response(userId, request)
 
 
 

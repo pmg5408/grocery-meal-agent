@@ -1,7 +1,7 @@
 import bcrypt
 from base64 import decode
 from passlib.context import CryptContext
-from fastapi import HTTPException, status, Depends
+from fastapi import HTTPException, status, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 def getHashedPassword(password: str) -> str:
@@ -70,6 +70,24 @@ def decodeJwt(token: str):
 
 def verifyJwt(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
     token = credentials.credentials
+    return decodeJwt(token)
+
+def verifyJwtSSE(request: Request):
+    """
+    JWT verification for SSE endpoints.
+    
+    EventSource API doesn't support custom headers, so we accept
+    the token via query parameter only.
+    """
+    token = request.query_params.get("token")
+    
+    if not token:
+        logger.warning("No JWT token provided in query params", extra={"path": request.url.path})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Provide token via 'token' query parameter."
+        )
+    
     return decodeJwt(token)
 
 
