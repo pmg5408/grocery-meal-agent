@@ -3,6 +3,7 @@ from datetime import datetime, time
 from xmlrpc.client import boolean
 from sqlmodel import SQLModel, Field, Relationship, Index
 from typing import Optional, List
+from sqlalchemy import UniqueConstraint
 
 '''
 Different classes for user and their use cases.
@@ -255,3 +256,50 @@ class UserMealTrigger(SQLModel, table=True):
     nextRun: datetime 
 
     user: Optional["User"] = Relationship()
+
+
+class TrustedAgent(SQLModel, table=True):
+    __table_args__ = (
+        Index("idx_trusted_agent_active", "isActive"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    agentId: str = Field(unique=True, index=True)
+    name: str
+    authMethod: str = Field(default="api_key")
+    apiKeyHash: Optional[str] = None
+    publicKeyPem: Optional[str] = None
+    # JSON-encoded list of allowed task types for this agent (e.g. ["meal.plan.generate"])
+    allowedTaskTypesJson: str = Field(default="[]")
+    rateLimitPerMinute: int = Field(default=60)
+    isActive: bool = Field(default=True)
+    createdAt: datetime = Field(default_factory=datetime.utcnow)
+    updatedAt: datetime = Field(default_factory=datetime.utcnow)
+
+
+class AgentTask(SQLModel, table=True):
+    __table_args__ = (
+        Index("idx_agent_task_status_created", "status", "createdAt"),
+        Index("idx_agent_task_caller_created", "callerAgentId", "createdAt"),
+        UniqueConstraint("callerAgentId", "idempotencyKey", name="uq_agent_task_caller_idempotency"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    taskId: str = Field(unique=True, index=True)
+    callerAgentId: str = Field(index=True)
+    taskType: str = Field(index=True)
+    status: str = Field(default="accepted", index=True)
+
+    inputJson: str
+    outputJson: Optional[str] = None
+    errorJson: Optional[str] = None
+
+    idempotencyKey: Optional[str] = None
+    correlationId: Optional[str] = None
+    callbackUrl: Optional[str] = None
+
+    attemptCount: int = Field(default=0)
+    createdAt: datetime = Field(default_factory=datetime.utcnow)
+    updatedAt: datetime = Field(default_factory=datetime.utcnow)
+    startedAt: Optional[datetime] = None
+    finishedAt: Optional[datetime] = None
