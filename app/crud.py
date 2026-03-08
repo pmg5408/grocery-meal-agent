@@ -426,3 +426,142 @@ def markMealAsInactive(session, mealId):
         logger.info("Marked meal as inactive", extra={"meal_id": mealId})
     return meal
 
+
+def getTrustedAgentByAgentId(session: Session, agentId: str) -> Optional[models.TrustedAgent]:
+    statement = select(models.TrustedAgent).where(models.TrustedAgent.agentId == agentId)
+    return session.exec(statement).first()
+
+
+def createTrustedAgent(
+    session: Session,
+    agentId: str,
+    name: str,
+    authMethod: str = "api_key",
+    apiKeyHash: Optional[str] = None,
+    publicKeyPem: Optional[str] = None,
+    allowedTaskTypes: Optional[List[str]] = None,
+    rateLimitPerMinute: int = 60,
+) -> models.TrustedAgent:
+    allowedTaskTypesJson = json.dumps(allowedTaskTypes or [])
+    agent = models.TrustedAgent(
+        agentId=agentId,
+        name=name,
+        authMethod=authMethod,
+        apiKeyHash=apiKeyHash,
+        publicKeyPem=publicKeyPem,
+        allowedTaskTypesJson=allowedTaskTypesJson,
+        rateLimitPerMinute=rateLimitPerMinute,
+        isActive=True,
+        updatedAt=datetime.utcnow(),
+    )
+    session.add(agent)
+    session.commit()
+    session.refresh(agent)
+    logger.info("Trusted agent created", extra={"agent_id": agentId, "auth_method": authMethod})
+    return agent
+
+
+def createAgentTask(
+    session: Session,
+    taskId: str,
+    callerAgentId: str,
+    taskType: str,
+    inputPayload: dict,
+    idempotencyKey: Optional[str] = None,
+    correlationId: Optional[str] = None,
+    callbackUrl: Optional[str] = None,
+) -> models.AgentTask:
+    task = models.AgentTask(
+        taskId=taskId,
+        callerAgentId=callerAgentId,
+        taskType=taskType,
+        status="accepted",
+        inputJson=json.dumps(inputPayload),
+        idempotencyKey=idempotencyKey,
+        correlationId=correlationId,
+        callbackUrl=callbackUrl,
+        updatedAt=datetime.utcnow(),
+    )
+    session.add(task)
+    session.commit()
+    session.refresh(task)
+    logger.info("A2A task created", extra={"task_id": taskId, "caller_agent_id": callerAgentId, "task_type": taskType})
+    return task
+
+
+def getAgentTaskByTaskId(session: Session, taskId: str) -> Optional[models.AgentTask]:
+    statement = select(models.AgentTask).where(models.AgentTask.taskId == taskId)
+    return session.exec(statement).first()
+
+
+def getAgentTaskByIdempotencyKey(
+    session: Session,
+    callerAgentId: str,
+    idempotencyKey: Optional[str],
+) -> Optional[models.AgentTask]:
+    if not idempotencyKey:
+        return None
+
+    statement = select(models.AgentTask).where(
+        models.AgentTask.callerAgentId == callerAgentId,
+        models.AgentTask.idempotencyKey == idempotencyKey,
+    )
+    return session.exec(statement).first()
+
+
+def updateAgentTaskStatus(
+    session: Session,
+    task: models.AgentTask,
+    status: str,
+    startedAt: Optional[datetime] = None,
+    finishedAt: Optional[datetime] = None,
+) -> models.AgentTask:
+    task.status = status
+    task.updatedAt = datetime.utcnow()
+    if startedAt:
+        task.startedAt = startedAt
+    if finishedAt:
+        task.finishedAt = finishedAt
+    session.add(task)
+    session.commit()
+    session.refresh(task)
+    logger.info("A2A task status updated", extra={"task_id": task.taskId, "status": status})
+    return task
+
+
+def markAgentTaskRunning(session: Session, task: models.AgentTask) -> models.AgentTask:
+    now = datetime.utcnow()
+    task.status = "running"
+    task.attemptCount += 1
+    task.startedAt = task.startedAt or now
+    task.updatedAt = now
+    session.add(task)
+    session.commit()
+    session.refresh(task)
+    logger.info("A2A task running", extra={"task_id": task.taskId, "attempt_count": task.attemptCount})
+    return task
+
+
+def completeAgentTask(session: Session, task: models.AgentTask, outputPayload: dict) -> models.AgentTask:
+    task.status = "completed"
+    task.outputJson = json.dumps(outputPayload)
+    task.errorJson = None
+    task.finishedAt = datetime.utcnow()
+    task.updatedAt = task.finishedAt
+    session.add(task)
+    session.commit()
+    session.refresh(task)
+    logger.info("A2A task completed", extra={"task_id": task.taskId})
+    return task
+
+
+def failAgentTask(session: Session, task: models.AgentTask, errorPayload: dict) -> models.AgentTask:
+    task.status = "failed"
+    task.errorJson = json.dumps(errorPayload)
+    task.finishedAt = datetime.utcnow()
+    task.updatedAt = task.finishedAt
+    session.add(task)
+    session.commit()
+    session.refresh(task)
+    logger.warning("A2A task failed", extra={"task_id": task.taskId})
+    return task
