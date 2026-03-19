@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
 
 import { UserProvider } from "@/context/userContext";
 
@@ -44,7 +45,7 @@ export default function RootLayout({children,}: Readonly<{children: React.ReactN
         <UserProvider>
           {children}
         </UserProvider>
-        
+        <Analytics />
       </body>
     </html>
   );
