@@ -14,6 +14,7 @@ from app.logger import get_logger, requestIdContext
 import uuid
 from app.sse_manager import create_sse_response, redis_listener as sse_redis_listener
 from app.security import verifyJwtSSE
+from app.a2a.router import router as a2aRouter
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -29,6 +30,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             requestIdContext.reset(token)
 
 app = FastAPI()
+app.include_router(a2aRouter)
 
 origins = [
     "http://localhost:3000",
@@ -207,7 +209,6 @@ async def eventsEndpoint(
     """
     logger.info("SSE connection requested", extra={"user_id": userId})
     return create_sse_response(userId, request)
-
 
 
 
