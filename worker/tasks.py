@@ -2,6 +2,7 @@ from worker.celery import celery
 from datetime import datetime
 from app.database import getCelerySession
 from app import crud, services, models
+from app.a2a import handlers as a2a_handlers
 from typing import List
 import redis
 import json
@@ -179,3 +180,51 @@ def getMealsFromLlm(self, userId, mealWindowKey):
     except Exception as e:
         logger.error(f"Meal generation task failed: {str(e)}", extra={"user_id": userId})
         raise e
+
+
+@celery.task
+def executeAgentTask(taskId: str):
+    """
+    Execute an inbound delegated A2A task.
+    """
+    logger.info("Starting A2A task execution", extra={"task_id": taskId})
+
+    try:
+        with next(getCelerySession()) as session:
+            task = crud.getAgentTaskByTaskId(session, taskId)
+            if not task:
+                logger.error("A2A task not found for execution", extra={"task_id": taskId})
+                return {"status": "missing", "taskId": taskId}
+
+            if task.status in {"completed", "failed", "cancelled"}:
+                logger.info("A2A task already terminal; skipping execution", extra={"task_id": taskId, "status": task.status})
+                return {"status": "skipped", "taskId": taskId, "taskStatus": task.status}
+
+            crud.markAgentTaskRunning(session, task)
+
+            input_payload = json.loads(task.inputJson) if task.inputJson else {}
+            output_payload = a2a_handlers.execute_task_type(task.taskType, input_payload, session)
+            crud.completeAgentTask(session, task, output_payload)
+
+            logger.info("A2A task executed successfully", extra={"task_id": taskId, "task_type": task.taskType})
+            return {"status": "success", "taskId": taskId}
+
+    except Exception as e:
+        logger.error("A2A task execution failed", extra={"task_id": taskId, "error": str(e)})
+        try:
+            with next(getCelerySession()) as session:
+                task = crud.getAgentTaskByTaskId(session, taskId)
+                if task and task.status not in {"completed", "cancelled"}:
+                    crud.failAgentTask(
+                        session,
+                        task,
+                        {
+                            "code": "TASK_EXECUTION_ERROR",
+                            "message": str(e),
+                            "retryable": False,
+                        },
+                    )
+        except Exception as inner_error:
+            logger.error("Failed to persist A2A task failure state", extra={"task_id": taskId, "error": str(inner_error)})
+
+        return {"status": "failed", "taskId": taskId, "error": str(e)}
