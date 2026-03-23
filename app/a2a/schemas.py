@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+import app.models as app_models
 
 
 class A2ATaskStatus(str, Enum):
@@ -60,3 +61,39 @@ class A2ATaskEvent(BaseModel):
     status: A2ATaskStatus
     timestamp: datetime
     payload: Dict[str, Any] = Field(default_factory=dict)
+
+
+class MealTaskOutputStatus(str, Enum):
+    OK = "ok"
+    NO_MEALS_AVAILABLE = "no_meals_available"
+
+
+class MealTaskScope(str, Enum):
+    ALL_DAY = "all_day"
+    ACTIVE_ONLY = "active_only"
+
+
+class MealGetBatchedMealsInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    userId: int = Field(gt=0, description="Target user id in pantry system")
+    activeOnly: bool = Field(default=False)
+
+
+class MealWindowsPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    breakfast: Optional[app_models.RecipeSuggestions] = None
+    lunch: Optional[app_models.RecipeSuggestions] = None
+    eveningSnack: Optional[app_models.RecipeSuggestions] = None
+    dinner: Optional[app_models.RecipeSuggestions] = None
+
+
+class MealGetBatchedMealsOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: MealTaskOutputStatus
+    scope: MealTaskScope
+    generatedOnDemand: bool
+    userId: int
+    meals: MealWindowsPayload
